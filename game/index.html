@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Scai Warrior</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<style>
+body{
+font-family: Arial;
+text-align:center;
+background:#111;
+color:white;
+}
+
+button{
+padding:12px;
+font-size:18px;
+margin-top:20px;
+cursor:pointer;
+}
+
+#score{
+font-size:30px;
+margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>⚔️ Scai Warrior</h1>
+
+<p>Click Attack to earn points</p>
+
+<div id="score">Score: 0</div>
+
+<button onclick="attack()">Attack</button>
+<br>
+<button onclick="saveScore()">Save Score on Blockchain</button>
+
+<script>
+
+let score = 0
+
+const contractAddress =
+"0x7fB2B0F340e288dED51fa70106d49897eaA1b380"
+
+const abi = [
+"function setScore(uint256 score)",
+"function getScore(address player) view returns (uint256)"
+]
+
+function attack(){
+
+score += 10
+
+document.getElementById("score").innerText =
+"Score: " + score
+
+}
+
+async function saveScore(){
+
+if(!window.ethereum){
+
+alert("Please install MetaMask")
+
+return
+
+}
+
+const provider =
+new ethers.providers.Web3Provider(window.ethereum)
+
+await provider.send("eth_requestAccounts", [])
+
+const signer = provider.getSigner()
+
+const contract =
+new ethers.Contract(contractAddress, abi, signer)
+
+try{
+
+const tx = await contract.setScore(score)
+
+alert("Transaction sent...")
+
+await tx.wait()
+
+alert("Score saved on blockchain!")
+
+}catch(err){
+
+console.log(err)
+
+alert("Transaction failed")
+
+}
+
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Memory Shuffle Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="header">
+  <div>🧠 Memory Shuffle</div>
+  <div class="score">Moves: <span id="moves">0</span></div>
+</div>
+
+<div class="game-card">
+
+<input id="bet" type="number" placeholder="Enter bet (ETH)">
+
+<div id="info"></div>
+
+<button onclick="startGame()">Start Game</button>
+
+<div id="alert" class="shuffle-alert"></div>
+
+<div class="grid" id="grid"></div>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+const emojis = ["🍎","🍌","🍇","🍒","🥝","🍉","🍍","🥥"]
+
+let cards = []
+let first = null
+let second = null
+let lock = false
+let moves = 0
+let matched = 0
+let bet = 0
+
+function startGame(){
+  bet = parseFloat(document.getElementById("bet").value)
+
+  if(!bet || bet<=0){
+    alert("Enter valid bet")
+    return
+  }
+
+  document.getElementById("info").innerHTML = `
+  💰 Bet: ${bet} ETH <br>
+  🎯 ≤14 moves: ${(bet*2).toFixed(4)} ETH <br>
+  🎯 ≤18 moves: ${(bet*1.5).toFixed(4)} ETH <br>
+  🎯 ≤24 moves: ${(bet*1.2).toFixed(4)} ETH <br>
+  🔄 Cards shuffle every 4 moves <br>
+  ❌ >24 moves: Lose
+  `
+
+  cards = [...emojis, ...emojis].sort(()=>Math.random()-0.5)
+
+  const grid = document.getElementById("grid")
+  grid.innerHTML = ""
+
+  moves = 0
+  matched = 0
+  document.getElementById("moves").innerText = moves
+  document.getElementById("result").innerText = ""
+  document.getElementById("alert").innerText = ""
+
+  cards.forEach((emoji,i)=>{
+    const div = document.createElement("div")
+    div.className = "card"
+    div.dataset.value = emoji
+    div.onclick = () => flip(div)
+    grid.appendChild(div)
+  })
+}
+
+function flip(card){
+  if(lock || card.classList.contains("flipped") || card.classList.contains("matched")) return
+
+  card.classList.add("flipped")
+  card.innerText = card.dataset.value
+
+  if(!first){
+    first = card
+  } else {
+    second = card
+    lock = true
+    moves++
+    document.getElementById("moves").innerText = moves
+
+    if(first.dataset.value === second.dataset.value){
+      first.classList.add("matched")
+      second.classList.add("matched")
+      matched++
+      endTurn()
+    } else {
+      setTimeout(()=>{
+        first.classList.remove("flipped")
+        second.classList.remove("flipped")
+        first.innerText=""
+        second.innerText=""
+        endTurn()
+      },600)
+    }
+  }
+}
+
+function endTurn(){
+  first = null
+  second = null
+  lock = false
+
+  // 🔄 shuffle AFTER full turn
+  if(moves > 0 && moves % 4 === 0){
+    setTimeout(shuffleCards,500)
+  }
+
+  if(matched === 8){
+    setTimeout(endGame,500)
+  }
+}
+
+function shuffleCards(){
+  document.getElementById("alert").innerText = "🔄 Cards Shuffled!"
+
+  let unmatched = [...document.querySelectorAll(".card:not(.matched)")]
+
+  let values = unmatched.map(c => c.dataset.value)
+  values.sort(()=>Math.random()-0.5)
+
+  unmatched.forEach((card,i)=>{
+    card.dataset.value = values[i]
+    card.classList.remove("flipped")
+    card.innerText = ""
+  })
+
+  setTimeout(()=>{
+    document.getElementById("alert").innerText = ""
+  },1500)
+}
+
+function endGame(){
+  let reward = 0
+
+  if(moves <= 14) reward = 2
+  else if(moves <= 18) reward = 1.5
+  else if(moves <= 24) reward = 1.2
+  else reward = 0
+
+  if(reward === 0){
+    document.getElementById("result").innerText = "❌ You LOST"
+  } else {
+    document.getElementById("result").innerText =
+    `🎉 You WON ${(bet*reward).toFixed(4)} ETH`
+  }
+}
+</script>
+
+</body>
+</html>

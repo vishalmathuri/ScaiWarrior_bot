@@ -1,33 +1,26 @@
 require("dotenv").config()
+const TelegramBot = require("node-telegram-bot-api")
 
-const { Telegraf } = require("telegraf")
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
 
-const bot = new Telegraf(process.env.BOT_TOKEN)
+bot.onText(/\/start/, (msg) => {
 
-// Start command
-bot.start((ctx) => {
-    ctx.reply(
-        "⚔️ Welcome to Scai Warrior!\n\nClick below to play the game 🎮",
-        {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: "🎮 Play Game",
-                            callback_game: {}
-                        }
-                    ]
-                ]
-            }
-        }
-    )
+bot.sendMessage(msg.chat.id,
+"🎮 Welcome to Scai Web3 Games!\nChoose a game:",
+{
+reply_markup:{
+inline_keyboard:[
+[
+{
+text:"🎮 Open Games",
+web_app:{
+url:"https://YOUR-VERCEL-URL.vercel.app"
+}
+}
+]
+]
+}
+}
+)
+
 })
-
-// Launch bot
-bot.launch()
-
-console.log("🚀 Scai Warrior Bot running...")
-
-// Graceful stop
-process.once("SIGINT", () => bot.stop("SIGINT"))
-process.once("SIGTERM", () => bot.stop("SIGTERM"))

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<body style="background:#111;color:white;text-align:center">
+
+<h1>🔨 Mole</h1>
+<h2 id="s">0</h2>
+<div id="g"></div>
+
+<script>
+let score=0
+const g=document.getElementById("g")
+g.style.display="grid"
+g.style.gridTemplateColumns="repeat(3,80px)"
+
+let cells=[]
+
+for(let i=0;i<9;i++){
+let d=document.createElement("div")
+d.style.height="80px"
+d.style.border="1px solid white"
+d.onclick=()=>{
+if(d.innerText=="🐹"){score++;s.innerText=score}
+}
+g.appendChild(d)
+cells.push(d)
+}
+
+setInterval(()=>{
+cells.forEach(c=>c.innerText="")
+cells[Math.floor(Math.random()*9)].innerText="🐹"
+},800)
+</script>
+
+</body>
+</html>

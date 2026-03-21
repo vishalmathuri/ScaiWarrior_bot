@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Snake Game</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<style>
+canvas{
+background:black;
+display:block;
+margin:20px auto;
+}
+body{
+text-align:center;
+color:white;
+background:#111;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🐍 Snake</h1>
+
+<canvas id="game" width="300" height="300"></canvas>
+
+<button onclick="saveScore()">Save Score</button>
+
+<script>
+
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
+
+let snake = [{x:150,y:150}]
+let food = {x:100,y:100}
+let dx = 10
+let dy = 0
+let score = 0
+
+document.addEventListener("keydown", e=>{
+if(e.key==="ArrowUp"){dx=0;dy=-10}
+if(e.key==="ArrowDown"){dx=0;dy=10}
+if(e.key==="ArrowLeft"){dx=-10;dy=0}
+if(e.key==="ArrowRight"){dx=10;dy=0}
+})
+
+function draw(){
+
+ctx.clearRect(0,0,300,300)
+
+snake.forEach(s=>{
+ctx.fillStyle="lime"
+ctx.fillRect(s.x,s.y,10,10)
+})
+
+ctx.fillStyle="red"
+ctx.fillRect(food.x,food.y,10,10)
+
+let head = {x:snake[0].x+dx,y:snake[0].y+dy}
+
+snake.unshift(head)
+
+if(head.x===food.x && head.y===food.y){
+score++
+food = {
+x:Math.floor(Math.random()*30)*10,
+y:Math.floor(Math.random()*30)*10
+}
+}else{
+snake.pop()
+}
+
+}
+
+setInterval(draw,100)
+
+async function saveScore(){
+
+const contractAddress="0x7fB2B0F340e288dED51fa70106d49897eaA1b380"
+const abi=["function setScore(uint256 score)"]
+
+const provider=new ethers.providers.Web3Provider(window.ethereum)
+await provider.send("eth_requestAccounts",[])
+
+const signer=provider.getSigner()
+const contract=new ethers.Contract(contractAddress,abi,signer)
+
+const tx=await contract.setScore(score)
+await tx.wait()
+
+alert("Score saved!")
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Lucky Wheel</title>
+
+<link rel="stylesheet" href="style.css">
+
+<style>
+/* Wheel specific styling */
+.wheel-container{
+    position:relative;
+    width:90%;
+    max-width:320px;
+    margin:20px auto;
+}
+
+canvas{
+    width:100%;
+    height:auto;
+    border-radius:50%;
+    box-shadow:0 0 30px rgba(0,240,255,0.4);
+}
+
+/* Pointer */
+.pointer{
+    position:absolute;
+    top:-10px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:22px;
+}
+
+/* Center hub */
+.hub{
+    position:absolute;
+    width:20%;
+    height:20%;
+    background:white;
+    border-radius:50%;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+}
+
+/* Input */
+input{
+    width:80%;
+    padding:12px;
+    border-radius:10px;
+    border:none;
+    margin-top:10px;
+    text-align:center;
+}
+
+/* Info */
+.info{
+    margin-top:10px;
+    font-size:14px;
+    opacity:0.9;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+  <div>🎡 Wheel Game</div>
+  <div class="score">Balance: 0 ETH</div>
+</div>
+
+<div class="game-card">
+
+<div class="wheel-container">
+  <div class="pointer">🔻</div>
+  <canvas id="wheel"></canvas>
+  <div class="hub"></div>
+</div>
+
+<input id="bet" type="number" placeholder="Enter bet (ETH)">
+
+<div id="info" class="info"></div>
+
+<button onclick="spin()">SPIN</button>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+const canvas = document.getElementById("wheel")
+const ctx = canvas.getContext("2d")
+
+/* RESPONSIVE CANVAS */
+function resizeCanvas(){
+    const size = canvas.offsetWidth
+    canvas.width = size
+    canvas.height = size
+}
+resizeCanvas()
+window.addEventListener("resize", resizeCanvas)
+
+/* SEGMENTS */
+const segments = [
+  {text:"LOSS", value:0, color:"#ff4b2b"},
+  {text:"1.2x", value:1.2, color:"#00f0ff"},
+  {text:"LOSS", value:0, color:"#ff4b2b"},
+  {text:"1.5x", value:1.5, color:"#4facfe"},
+  {text:"LOSS", value:0, color:"#ff4b2b"},
+  {text:"1.8x", value:1.8, color:"#a855f7"},
+  {text:"LOSS", value:0, color:"#ff4b2b"},
+  {text:"2x", value:2, color:"#f59e0b"},
+]
+
+let angle = 0
+const arc = (2*Math.PI)/segments.length
+
+function drawWheel(){
+    const center = canvas.width/2
+    const radius = center
+
+    for(let i=0;i<segments.length;i++){
+        const ang = i*arc + angle
+
+        ctx.beginPath()
+        ctx.fillStyle = segments[i].color
+        ctx.moveTo(center,center)
+        ctx.arc(center,center,radius,ang,ang+arc)
+        ctx.fill()
+
+        /* Text */
+        ctx.save()
+        ctx.translate(center,center)
+        ctx.rotate(ang + arc/2)
+        ctx.fillStyle = "white"
+        ctx.font = "bold 14px Segoe UI"
+        ctx.fillText(segments[i].text, radius*0.55, 5)
+        ctx.restore()
+    }
+}
+
+drawWheel()
+
+/* INFO DISPLAY */
+document.getElementById("bet").addEventListener("input",()=>{
+    const bet = parseFloat(document.getElementById("bet").value)
+
+    if(bet>0){
+        document.getElementById("info").innerHTML = `
+        💰 Bet: ${bet} ETH <br>
+        🎯 1.2x: ${(bet*1.2).toFixed(4)} ETH    🎯 1.5x: ${(bet*1.5).toFixed(4)} ETH <br>
+        🎯 1.8x: ${(bet*1.8).toFixed(4)} ETH    🎯 2x: ${(bet*2).toFixed(4)} ETH <br>
+        ❌ Lose: Full bet
+        `
+    }
+})
+
+function spin(){
+    const bet = parseFloat(document.getElementById("bet").value)
+    if(!bet || bet<=0){
+        alert("Enter valid bet")
+        return
+    }
+
+    let velocity = 0.4 + Math.random()*0.3
+
+    const interval = setInterval(()=>{
+        angle += velocity
+        velocity *= 0.985
+
+        ctx.clearRect(0,0,canvas.width,canvas.height)
+        drawWheel()
+
+        if(velocity < 0.002){
+            clearInterval(interval)
+
+            let norm = angle % (2*Math.PI)
+            let pointer = (3*Math.PI/2 - norm + 2*Math.PI)%(2*Math.PI)
+            let index = Math.floor(pointer / arc)
+
+            const res = segments[index]
+
+            if(res.value === 0){
+                document.getElementById("result").innerText = "❌ You LOST"
+            } else {
+                document.getElementById("result").innerText =
+                `🎉 You WON ${(bet*res.value).toFixed(4)} ETH`
+            }
+        }
+    },30)
+}
+</script>
+
+</body>
+</html>

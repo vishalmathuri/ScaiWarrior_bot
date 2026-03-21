@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Find the King</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="header">
+  <div>👑 Find the King</div>
+</div>
+
+<div class="game-card">
+
+<input id="bet" type="number" placeholder="Enter bet (ETH)" oninput="updateInfo()">
+
+<div id="info"></div>
+
+<button id="startBtn" onclick="startGame()">Start</button>
+<button id="shuffleBtn" onclick="shuffleCards()" style="display:none;">Shuffle</button>
+<button id="againBtn" onclick="resetGame()" style="display:none;">Play Again</button>
+
+<div class="grid king-grid" id="grid"></div>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+let cards = []
+let bet = 0
+let shuffled = false
+
+// 🔹 Live bet info
+function updateInfo(){
+  bet = parseFloat(document.getElementById("bet").value)
+
+  if(!bet || bet <= 0){
+    document.getElementById("info").innerHTML = ""
+    return
+  }
+
+  document.getElementById("info").innerHTML = `
+  💰 Bet: ${bet} ETH <br>
+  👑 Find the King <br>
+  🎯 Win (2x): ${(bet*2).toFixed(4)} ETH <br>
+  ❌ Wrong card: Lose everything
+  `
+}
+
+// 🔹 Start game
+function startGame(){
+  if(!bet || bet <= 0){
+    alert("Enter valid bet")
+    return
+  }
+
+  // initial setup (NOT shuffled yet)
+  cards = ["king","queen","queen"]
+
+  renderCards(true)
+
+  shuffled = false
+  document.getElementById("result").innerText = ""
+
+  document.getElementById("startBtn").style.display = "none"
+  document.getElementById("shuffleBtn").style.display = "inline-block"
+  document.getElementById("againBtn").style.display = "none"
+
+  // preview cards then hide
+  setTimeout(()=>flipAll(false),2000)
+}
+
+// 🔹 Render cards
+function renderCards(showFront){
+  const grid = document.getElementById("grid")
+  grid.innerHTML = ""
+
+  cards.forEach((type,i)=>{
+    const card = document.createElement("div")
+    card.className = "card3d"
+
+    card.innerHTML = `
+      <div class="inner">
+        <div class="front">
+          <img src="${type === "king" ? "king.jpeg" : "queen.jpeg"}">
+        </div>
+        <div class="back">
+          <img src="card-back.png">
+        </div>
+      </div>
+    `
+
+    if(showFront){
+      card.classList.add("show")
+    } else {
+      card.classList.remove("show")
+    }
+
+    card.onclick = () => pickCard(i)
+
+    grid.appendChild(card)
+  })
+}
+
+// 🔹 Flip all cards
+function flipAll(showFront){
+  let cardsEl = document.querySelectorAll(".card3d")
+
+  cardsEl.forEach(c=>{
+    if(showFront){
+      c.classList.add("show")
+    } else {
+      c.classList.remove("show")
+    }
+  })
+}
+
+// 🔹 REAL shuffle (FIXED)
+function shuffleCards(){
+  if(shuffled) return
+
+  shuffled = true
+
+  const grid = document.getElementById("grid")
+  let cardsEl = document.querySelectorAll(".card3d")
+
+  // 🎰 animation
+  cardsEl.forEach((card)=>{
+    card.style.transition = "transform 0.4s"
+    card.style.transform = `translateY(-20px) rotate(${Math.random()*180}deg)`
+  })
+
+  setTimeout(()=>{
+    // ✅ Fisher-Yates shuffle (REAL randomness)
+    for(let i = cards.length - 1; i > 0; i--){
+      let j = Math.floor(Math.random() * (i + 1))
+      ;[cards[i], cards[j]] = [cards[j], cards[i]]
+    }
+
+    // reset animation
+    cardsEl.forEach(card=>{
+      card.style.transform = "translateY(0px) rotate(0deg)"
+    })
+
+    // 🔥 re-render cards in NEW order
+    renderCards(false)
+
+  }, 400)
+}
+
+// 🔹 Pick card
+function pickCard(index){
+  if(!shuffled) return
+
+  flipAll(true)
+
+  let all = document.querySelectorAll(".card3d")
+  let result = document.getElementById("result")
+
+  if(cards[index] === "king"){
+    all[index].classList.add("win")
+    result.innerText = `🎉 You WON ${(bet*2).toFixed(4)} ETH`
+  } else {
+    all[index].classList.add("lose")
+
+    cards.forEach((c,i)=>{
+      if(c === "king"){
+        all[i].classList.add("win")
+      }
+    })
+
+    result.innerText = "❌ You LOST"
+  }
+
+  document.getElementById("againBtn").style.display = "inline-block"
+}
+
+// 🔹 Reset game
+function resetGame(){
+  document.getElementById("grid").innerHTML = ""
+  document.getElementById("result").innerText = ""
+  document.getElementById("info").innerHTML = ""
+  document.getElementById("bet").value = ""
+
+  document.getElementById("startBtn").style.display = "inline-block"
+  document.getElementById("shuffleBtn").style.display = "none"
+  document.getElementById("againBtn").style.display = "none"
+
+  shuffled = false
+}
+</script>
+
+</body>
+</html>                                                                                                                                                                                     

@@ -1,16 +1,14 @@
-const hre = require("hardhat");
-
 async function main() {
+  const [deployer] = await ethers.getSigners();
 
-  console.log("Deploying contract...");
+  console.log("Deploying with:", deployer.address);
 
-  const GameRewards = await hre.ethers.getContractFactory("GameRewards");
+  const CoinFlip = await ethers.getContractFactory("CoinFlipCommitReveal");
+  const contract = await CoinFlip.deploy();
 
-  const contract = await GameRewards.deploy();
+  await contract.deployed();
 
-  await contract.deployed();   // <-- correct for ethers v5
-
-  console.log("Contract deployed to:", contract.address);
+  console.log("Contract deployed at:", contract.address);
 }
 
 main().catch((error) => {

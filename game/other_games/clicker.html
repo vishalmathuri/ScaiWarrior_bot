@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Battle Clicker</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+</head>
+
+<body>
+
+<div class="header">
+<div>⚔️ Battle</div>
+<div class="score" id="xp">XP: 0</div>
+</div>
+
+<div class="game-card">
+
+<h2 id="enemy">👾 Enemy HP: 100</h2>
+
+<img src="https://cdn-icons-png.flaticon.com/512/1055/1055646.png" width="100">
+
+<br>
+
+<button onclick="attack()">⚔️ Attack</button>
+<button onclick="saveXP()">💾 Save</button>
+
+</div>
+
+<script>
+let xp = 0
+let hp = 100
+
+function attack(){
+    let damage = Math.floor(Math.random()*10)+5
+    hp -= damage
+
+    if(hp <= 0){
+        xp += 20
+        hp = 100
+        alert("Enemy defeated! +20 XP")
+    }
+
+    document.getElementById("xp").innerText = "XP: " + xp
+    document.getElementById("enemy").innerText = "👾 Enemy HP: " + hp
+}
+
+async function saveXP(){
+    alert("Saved (connect your contract here)")
+}
+</script>
+
+</body>
+</html>

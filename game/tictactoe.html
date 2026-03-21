@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tic Tac Toe</title>
+
+<style>
+body{
+    margin:0;
+    font-family:'Segoe UI',sans-serif;
+    background: radial-gradient(circle at top, #0f172a, #020617);
+    color:white;
+    text-align:center;
+}
+
+.header{
+    padding:15px;
+    background:rgba(255,255,255,0.05);
+}
+
+.hidden{display:none;}
+
+.board{
+    display:grid;
+    grid-template-columns:repeat(3,100px);
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+}
+
+.cell{
+    width:100px;
+    height:100px;
+    background:#1e293b;
+    border-radius:15px;
+    font-size:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+}
+
+.win{
+    background:#22c55e;
+    color:black;
+}
+
+button{
+    margin:10px;
+    padding:12px 20px;
+    border:none;
+    border-radius:10px;
+    background:linear-gradient(45deg,#3b82f6,#06b6d4);
+    color:white;
+    cursor:pointer;
+}
+
+input{
+    padding:10px;
+    border-radius:10px;
+    border:none;
+    text-align:center;
+    margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">❌ Tic Tac Toe</div>
+
+<!-- MODE -->
+<div id="mode">
+<h2>Select Mode</h2>
+<button onclick="chooseMode('online')">🌐 Play Online</button>
+<button onclick="chooseMode('friend')">👥 Play with Friend</button>
+</div>
+
+<!-- SETUP -->
+<div id="setup" class="hidden">
+<input id="bet" placeholder="Enter Bet (ETH)" oninput="updateInfo()">
+<div id="info"></div>
+
+<div id="extra"></div>
+
+<button onclick="startMatch()">Start</button>
+</div>
+
+<!-- GAME -->
+<div id="game" class="hidden">
+<h2 id="status">Your Turn (X)</h2>
+<div class="board" id="board"></div>
+<button onclick="resetGame()">🔄 Restart</button>
+</div>
+
+<script>
+let mode = ""
+let bet = 0
+
+let cells=[]
+let currentPlayer="X"
+let gameActive=true
+
+const board=document.getElementById("board")
+const statusText=document.getElementById("status")
+
+// create board
+for(let i=0;i<9;i++){
+  let cell=document.createElement("div")
+  cell.className="cell"
+  cell.onclick=handleClick
+  board.appendChild(cell)
+  cells.push(cell)
+}
+
+// MODE SELECT
+function chooseMode(m){
+  mode=m
+  document.getElementById("mode").style.display="none"
+  document.getElementById("setup").classList.remove("hidden")
+
+  if(mode==="online"){
+    document.getElementById("extra").innerHTML=""
+  }
+
+  if(mode==="friend"){
+    document.getElementById("extra").innerHTML=`
+      <div>
+        <button onclick="createRoom()">🔗 Create Room</button>
+        <input id="roomLink" readonly placeholder="Room link will appear here">
+      </div>
+
+      <div>
+        <input id="joinInput" placeholder="Enter Room ID">
+        <button onclick="joinRoom()">🚪 Join Room</button>
+      </div>
+
+      <div id="roomStatus"></div>
+    `
+  }
+}
+
+// BET INFO
+function updateInfo(){
+  bet=parseFloat(document.getElementById("bet").value)
+
+  if(!bet||bet<=0){
+    document.getElementById("info").innerHTML=""
+    return
+  }
+
+  document.getElementById("info").innerHTML=`
+  💰 Bet: ${bet} ETH <br>
+  🟢 Win: ${(bet*1.8).toFixed(4)} ETH <br>
+  🤝 Draw: ${(bet*0.9).toFixed(4)} ETH <br>
+  🔴 Loss: 0 ETH <br>
+  ⏳ No player in 10 min → Refund
+  `
+}
+
+// START MATCH
+function startMatch(){
+  if(!bet||bet<=0){
+    alert("Enter valid bet")
+    return
+  }
+
+  if(mode==="online"){
+    document.getElementById("extra").innerHTML="🔍 Finding player with same bet..."
+
+    setTimeout(()=>{
+      document.getElementById("extra").innerHTML="✅ Player found!"
+      startGame()
+    },2000)
+  }else{
+    alert("Create or join a room to start")
+  }
+}
+
+// CREATE ROOM
+function createRoom(){
+  const roomId=Math.random().toString(36).slice(2,8)
+  const link=location.origin+location.pathname+"?room="+roomId
+
+  document.getElementById("roomLink").value=link
+}
+
+// JOIN ROOM
+function joinRoom(){
+  const roomId=document.getElementById("joinInput").value.trim()
+
+  if(!roomId){
+    alert("Enter Room ID")
+    return
+  }
+
+  document.getElementById("roomStatus").innerText="🔄 Joining room..."
+
+  setTimeout(()=>{
+    document.getElementById("roomStatus").innerText="✅ Joined! Starting game..."
+    startGame()
+  },1500)
+}
+
+// START GAME
+function startGame(){
+  document.getElementById("setup").classList.add("hidden")
+  document.getElementById("game").classList.remove("hidden")
+}
+
+// GAME LOGIC
+function handleClick(e){
+  const cell=e.target
+
+  if(cell.innerText!==""||!gameActive)return
+
+  cell.innerText=currentPlayer
+
+  const win=checkWin()
+
+  if(win){
+    statusText.innerText=currentPlayer+" Wins! 🎉"
+    gameActive=false
+    win.forEach(i=>cells[i].classList.add("win"))
+    return
+  }
+
+  if(isDraw()){
+    statusText.innerText="Draw 🤝"
+    gameActive=false
+    return
+  }
+
+  currentPlayer=currentPlayer==="X"?"O":"X"
+  statusText.innerText=currentPlayer+"'s Turn"
+}
+
+function checkWin(){
+  const p=[
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ]
+
+  for(let a of p){
+    if(cells[a[0]].innerText &&
+       cells[a[0]].innerText===cells[a[1]].innerText &&
+       cells[a[0]].innerText===cells[a[2]].innerText){
+       return a
+    }
+  }
+  return null
+}
+
+function isDraw(){
+  return cells.every(c=>c.innerText!=="")
+}
+
+function resetGame(){
+  cells.forEach(c=>{
+    c.innerText=""
+    c.classList.remove("win")
+  })
+  currentPlayer="X"
+  gameActive=true
+  statusText.innerText="Your Turn (X)"
+}
+</script>
+
+</body>
+</html>

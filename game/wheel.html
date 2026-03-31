@@ -1,194 +1,243 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Lucky Wheel</title>
+  <title>🎡 Wheel Game</title>
 
-<link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top, #1a1a2e, #0f172a);
+      color: white;
+      text-align: center;
+    }
 
-<style>
-/* Wheel specific styling */
-.wheel-container{
-    position:relative;
-    width:90%;
-    max-width:320px;
-    margin:20px auto;
-}
+    .game-card {
+      max-width: 420px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #111827;
+      border-radius: 20px;
+      box-shadow: 0 0 25px rgba(0,255,174,0.2);
+    }
 
-canvas{
-    width:100%;
-    height:auto;
-    border-radius:50%;
-    box-shadow:0 0 30px rgba(0,240,255,0.4);
-}
+    input {
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      margin-top: 10px;
+      width: 80%;
+      text-align: center;
+    }
 
-/* Pointer */
-.pointer{
-    position:absolute;
-    top:-10px;
-    left:50%;
-    transform:translateX(-50%);
-    font-size:22px;
-}
+    button {
+      margin-top: 15px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #00ffae;
+      cursor: pointer;
+      font-weight: bold;
+    }
 
-/* Center hub */
-.hub{
-    position:absolute;
-    width:20%;
-    height:20%;
-    background:white;
-    border-radius:50%;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-}
+    .wheel-container {
+      position: relative;
+      margin: 20px auto;
+      width: 260px;
+      height: 260px;
+    }
 
-/* Input */
-input{
-    width:80%;
-    padding:12px;
-    border-radius:10px;
-    border:none;
-    margin-top:10px;
-    text-align:center;
-}
+    .wheel {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 8px solid #00ffae;
 
-/* Info */
-.info{
-    margin-top:10px;
-    font-size:14px;
-    opacity:0.9;
-}
-</style>
+      background: conic-gradient(
+        #ff4d4d 0deg 45deg,
+        #00ffae 45deg 90deg,
+        #ff4d4d 90deg 135deg,
+        #00ffae 135deg 180deg,
+        #ff4d4d 180deg 225deg,
+        #00ffae 225deg 270deg,
+        #ff4d4d 270deg 315deg,
+        #00ffae 315deg 360deg
+      );
+    }
 
+    .label {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform-origin: center;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .pointer {
+      position: absolute;
+      top: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 20px solid #d4ff00;
+
+      filter: drop-shadow(0 0 6px #00ffae);
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="header">
-  <div>🎡 Wheel Game</div>
-  <div class="score">Balance: 0 ETH</div>
-</div>
-
 <div class="game-card">
+  <h2>🎡 Wheel Game</h2>
 
-<div class="wheel-container">
-  <div class="pointer">🔻</div>
-  <canvas id="wheel"></canvas>
-  <div class="hub"></div>
+  <div class="wheel-container">
+    <div class="pointer"></div>
+    <div id="wheel" class="wheel"></div>
+  </div>
+
+  <input id="bet" type="number" step="0.01" placeholder="Enter bet (ETH)">
+  <p id="betInfo"></p>
+
+  <button onclick="spin()">SPIN</button>
+
+  <h3 id="result">Waiting...</h3>
 </div>
 
-<input id="bet" type="number" placeholder="Enter bet (ETH)">
+<script src="https://unpkg.com/ethers@6.10.0/dist/ethers.umd.min.js"></script>
 
-<div id="info" class="info"></div>
+<script type="module">
+import { connectWallet, spinWheel } from "./game.js";
 
-<button onclick="spin()">SPIN</button>
+let isPlaying = false;
 
-<div id="result"></div>
+const multipliers = [0,120,0,140,0,160,0,180];
 
-</div>
+window.onload = async () => {
+  await connectWallet();
+  createLabels();
+};
 
-<script>
-const canvas = document.getElementById("wheel")
-const ctx = canvas.getContext("2d")
+// bet preview
+document.getElementById("bet").addEventListener("input", (e) => {
+  const val = Number(e.target.value);
 
-/* RESPONSIVE CANVAS */
-function resizeCanvas(){
-    const size = canvas.offsetWidth
-    canvas.width = size
-    canvas.height = size
-}
-resizeCanvas()
-window.addEventListener("resize", resizeCanvas)
+  if (!val || val <= 0) {
+    document.getElementById("betInfo").innerHTML = "";
+    return;
+  }
 
-/* SEGMENTS */
-const segments = [
-  {text:"LOSS", value:0, color:"#ff4b2b"},
-  {text:"1.2x", value:1.2, color:"#00f0ff"},
-  {text:"LOSS", value:0, color:"#ff4b2b"},
-  {text:"1.5x", value:1.5, color:"#4facfe"},
-  {text:"LOSS", value:0, color:"#ff4b2b"},
-  {text:"1.8x", value:1.8, color:"#a855f7"},
-  {text:"LOSS", value:0, color:"#ff4b2b"},
-  {text:"2x", value:2, color:"#f59e0b"},
-]
+  const outcomes = multipliers
+    .filter(m => m > 0)
+    .map(m => `${m/100}x = ${(val * m / 100).toFixed(4)} ETH`)
+    .join("<br>");
 
-let angle = 0
-const arc = (2*Math.PI)/segments.length
+  document.getElementById("betInfo").innerHTML =
+    `💰 Bet: ${val.toFixed(4)} ETH <br>
+     🎯 Possible Wins:<br>${outcomes}<br>
+     ⚠️ Lose: ${val.toFixed(4)} ETH`;
+});
 
-function drawWheel(){
-    const center = canvas.width/2
-    const radius = center
+// labels
+function createLabels() {
+  const wheel = document.getElementById("wheel");
 
-    for(let i=0;i<segments.length;i++){
-        const ang = i*arc + angle
+  multipliers.forEach((m, i) => {
+    const label = document.createElement("div");
+    label.className = "label";
+    label.id = "slice-" + i;
 
-        ctx.beginPath()
-        ctx.fillStyle = segments[i].color
-        ctx.moveTo(center,center)
-        ctx.arc(center,center,radius,ang,ang+arc)
-        ctx.fill()
+    const angle = i * 45 + 22.5;
 
-        /* Text */
-        ctx.save()
-        ctx.translate(center,center)
-        ctx.rotate(ang + arc/2)
-        ctx.fillStyle = "white"
-        ctx.font = "bold 14px Segoe UI"
-        ctx.fillText(segments[i].text, radius*0.55, 5)
-        ctx.restore()
-    }
+    label.style.transform =
+      `rotate(${angle}deg) translate(0, -105px) rotate(-${angle}deg)`;
+
+    label.innerText = m === 0 ? "💀" : (m / 100) + "x";
+
+    wheel.appendChild(label);
+  });
 }
 
-drawWheel()
+// highlight winner
+function highlightWinner(index) {
+  document.querySelectorAll(".label").forEach(el => {
+    el.style.color = "white";
+    el.style.transform = el.style.transform.replace(" scale(1.4)", "");
+  });
 
-/* INFO DISPLAY */
-document.getElementById("bet").addEventListener("input",()=>{
-    const bet = parseFloat(document.getElementById("bet").value)
+  const winner = document.getElementById("slice-" + index);
 
-    if(bet>0){
-        document.getElementById("info").innerHTML = `
-        💰 Bet: ${bet} ETH <br>
-        🎯 1.2x: ${(bet*1.2).toFixed(4)} ETH    🎯 1.5x: ${(bet*1.5).toFixed(4)} ETH <br>
-        🎯 1.8x: ${(bet*1.8).toFixed(4)} ETH    🎯 2x: ${(bet*2).toFixed(4)} ETH <br>
-        ❌ Lose: Full bet
-        `
-    }
-})
-
-function spin(){
-    const bet = parseFloat(document.getElementById("bet").value)
-    if(!bet || bet<=0){
-        alert("Enter valid bet")
-        return
-    }
-
-    let velocity = 0.4 + Math.random()*0.3
-
-    const interval = setInterval(()=>{
-        angle += velocity
-        velocity *= 0.985
-
-        ctx.clearRect(0,0,canvas.width,canvas.height)
-        drawWheel()
-
-        if(velocity < 0.002){
-            clearInterval(interval)
-
-            let norm = angle % (2*Math.PI)
-            let pointer = (3*Math.PI/2 - norm + 2*Math.PI)%(2*Math.PI)
-            let index = Math.floor(pointer / arc)
-
-            const res = segments[index]
-
-            if(res.value === 0){
-                document.getElementById("result").innerText = "❌ You LOST"
-            } else {
-                document.getElementById("result").innerText =
-                `🎉 You WON ${(bet*res.value).toFixed(4)} ETH`
-            }
-        }
-    },30)
+  if (winner) {
+    winner.style.color = "#00ffae";
+    winner.style.transform += " scale(1.4)";
+    winner.style.textShadow = "0 0 10px #00ffae";
+  }
 }
+
+// ✅ FINAL FIXED SPIN
+async function spin() {
+
+  if (isPlaying) return;
+
+  const bet = Number(document.getElementById("bet").value);
+  const resultBox = document.getElementById("result");
+
+  if (!bet || bet <= 0) {
+    resultBox.innerText = "⚠️ Enter valid bet";
+    return;
+  }
+
+  try {
+    isPlaying = true;
+    resultBox.innerText = "⏳ Confirm in wallet...";
+
+    const res = await spinWheel(bet);
+
+    const index = Number(res.index);
+    const multiplier = Number(res.multiplier);
+
+    const wheel = document.getElementById("wheel");
+
+    const segment = 360 / multipliers.length;
+    const sliceCenter = index * segment + segment / 2;
+
+    const spins = 5; // full spins
+    const finalRotation =
+      (spins * 360) - sliceCenter;
+
+    wheel.style.transition = "transform 3s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
+    wheel.style.transform = `rotate(${finalRotation}deg)`;
+
+    setTimeout(() => {
+
+      highlightWinner(index);
+
+      if (multiplier > 0) {
+        resultBox.innerText =
+          `🎯 ${multiplier / 100}x\n🏆 Win: ${res.payout} ETH`;
+      } else {
+        resultBox.innerText =
+          `💀 Lost ${bet.toFixed(4)} ETH`;
+      }
+
+      isPlaying = false;
+
+    }, 3000);
+
+  } catch (err) {
+    console.error(err);
+    resultBox.innerText = "❌ Transaction rejected";
+    isPlaying = false;
+  }
+}
+
+window.spin = spin;
+
 </script>
 
 </body>

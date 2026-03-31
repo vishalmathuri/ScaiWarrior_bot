@@ -1,215 +1,121 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Web3 Game Hub</title>
+  <title>Web3 Casino</title>
 
-<!-- ✅ FIXED ETHERS v6 -->
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+  <!-- Telegram -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<style>
-body {
-  margin: 0;
-  font-family: "Poppins", sans-serif;
-  background: radial-gradient(circle at top, #0f172a, #020617);
-  color: white;
-}
+  <!-- Ethers -->
+  <script src="https://unpkg.com/ethers@6.10.0/dist/ethers.umd.min.js"></script>
 
-/* HEADER */
-.header {
-  padding: 20px;
-  text-align: center;
-}
+  <!-- Fix favicon error -->
+  <link rel="icon" href="data:,">
 
-.title {
-  font-size: 36px;
-  background: linear-gradient(90deg, #22c55e, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+  <style>
+    body {
+      margin:0;
+      font-family:Poppins;
+      background: radial-gradient(circle at top,#0f172a,#020617);
+      color:white;
+      text-align:center;
+    }
 
-/* WALLET */
-.wallet-box {
-  margin-top: 10px;
-}
+    .header {
+      padding:20px;
+    }
 
-.wallet {
-  font-size: 13px;
-  color: #4ade80;
-  word-break: break-all;
-}
+    .title {
+      font-size:30px;
+      margin-bottom:10px;
+    }
 
-.connect-btn {
-  margin-top: 10px;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  background: linear-gradient(90deg, #3b82f6, #06b6d4);
-  color: white;
-}
+    .wallet {
+      font-size:12px;
+      color:#22c55e;
+      margin-top:10px;
+    }
 
-/* GRID */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  padding: 20px;
-}
+    .grid {
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:15px;
+      padding:20px;
+    }
 
-/* GAME CARD */
-.card {
-  background: rgba(255,255,255,0.05);
-  border-radius: 16px;
-  padding: 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: 0.3s;
-  backdrop-filter: blur(10px);
-}
+    .card {
+      padding:20px;
+      border-radius:16px;
+      background:rgba(255,255,255,0.05);
+      cursor:pointer;
+      transition:0.2s;
+    }
 
-.card:hover {
-  transform: translateY(-5px);
-  background: rgba(255,255,255,0.1);
-}
+    .card:hover {
+      transform:scale(1.05);
+      background:rgba(255,255,255,0.1);
+    }
 
-/* ICON */
-.icon {
-  font-size: 30px;
-  margin-bottom: 10px;
-}
-
-/* NAME */
-.name {
-  font-size: 14px;
-}
-
-/* MOBILE */
-@media(max-width:600px){
-  .grid{
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-</style>
+    button {
+      padding:10px 20px;
+      border:none;
+      border-radius:10px;
+      cursor:pointer;
+      background:linear-gradient(45deg,#3b82f6,#06b6d4);
+      color:white;
+      font-weight:bold;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="header">
-  <div class="title">🎮 Web3 Game Hub</div>
+  <div class="header">
+    <div class="title">🎰 Web3 Casino</div>
 
-  <div class="wallet-box">
-    <button class="connect-btn" onclick="connectWallet()">Connect Wallet</button>
-    <div class="wallet" id="wallet"></div>
-  </div>
-</div>
+    <button id="connectBtn">Connect Wallet</button>
 
-<div class="grid">
-
-  <div class="card" onclick="go('coinflip.html')">
-    <div class="icon">💰</div>
-    <div class="name">Coin Flip</div>
+    <div id="wallet" class="wallet">Not connected</div>
   </div>
 
-  <div class="card" onclick="go('dice.html')">
-    <div class="icon">🎲</div>
-    <div class="name">Dice</div>
+  <div class="grid">
+    <div class="card" onclick="go('coinflip.html')">💰 CoinFlip</div>
+    <div class="card" onclick="go('dice.html')">🎲 Dice</div>
+    <div class="card" onclick="go('wheel.html')">🎡 Wheel</div>
+    <div class="card" onclick="go('king.html')">👑 King</div>
   </div>
 
-  <div class="card" onclick="go('wheel.html')">
-    <div class="icon">🎡</div>
-    <div class="name">Lucky Wheel</div>
-  </div>
+  <script type="module">
+    import { connectWallet } from "./game.js";
 
-  <div class="card" onclick="go('king.html')">
-    <div class="icon">👑</div>
-    <div class="name">Find the King</div>
-  </div>
+    const btn = document.getElementById("connectBtn");
+    const walletText = document.getElementById("wallet");
 
-  <div class="card" onclick="go('tictactoe.html')">
-    <div class="icon">❌</div>
-    <div class="name">Tic Tac Toe</div>
-  </div>
+    btn.onclick = async () => {
+      try {
+        const address = await connectWallet();
 
-  <!-- <div class="card" onclick="go('snake.html')">
-    <div class="icon">🐍</div>
-    <div class="name">Snake</div>
-  </div> -->
+        if (!address) {
+          walletText.innerText = "❌ Not connected";
+          return;
+        }
 
-  <div class="card" onclick="go('memory.html')">
-    <div class="icon">🧠</div>
-    <div class="name">Memory</div>
-  </div>
+        walletText.innerText =
+          "Connected: " +
+          address.slice(0, 6) +
+          "..." +
+          address.slice(-4);
 
-  <!-- <div class="card" onclick="go('reaction.html')">
-    <div class="icon">⚡</div>
-    <div class="name">Reaction</div>
-  </div>
+      } catch (err) {
+        console.error(err);
+        walletText.innerText = "❌ Connection failed";
+      }
+    };
 
-  <div class="card" onclick="go('runner.html')">
-    <div class="icon">🏃</div>
-    <div class="name">Runner</div>
-  </div>
-
-  <div class="card" onclick="go('puzzle.html')">
-    <div class="icon">🧩</div>
-    <div class="name">Puzzle</div>
-  </div>
-
-  <div class="card" onclick="go('mole.html')">
-    <div class="icon">🔨</div>
-    <div class="name">Whack-a-Mole</div>
-  </div>
-  
-  <div class="card" onclick="go('clicker.html')">
-    <div class="icon">👾</div>
-    <div class="name">clicker</div>
-  </div> -->
-
-</div>
-
-<script>
-
-// 🔌 CONNECT WALLET (ETHERS v6)
-async function connectWallet(){
-  if(!window.ethereum){
-    alert("Install MetaMask")
-    return
-  }
-
-  try{
-    const provider = new ethers.BrowserProvider(window.ethereum)
-    const accounts = await provider.send("eth_requestAccounts", [])
-
-    const account = accounts[0]
-
-    localStorage.setItem("wallet", account)
-
-    showWallet()
-
-  } catch(err){
-    console.error(err)
-    alert("Wallet connection failed")
-  }
-}
-
-// 📱 SHOW WALLET
-function showWallet(){
-  const wallet = localStorage.getItem("wallet")
-
-  if(wallet){
-    document.getElementById("wallet").innerText = "🟢 " + wallet
-  }
-}
-
-// 🔗 NAVIGATION
-function go(page){
-  window.location.href = page
-}
-
-// 🔄 AUTO LOAD WALLET
-showWallet()
-
-</script>
+    window.go = (page) => {
+      window.location.href = page;
+    };
+  </script>
 
 </body>
 </html>

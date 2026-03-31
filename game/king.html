@@ -1,196 +1,238 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Find the King</title>
-  <link rel="stylesheet" href="style.css">
+  <title>👑 King Game</title>
+
+  <!-- ✅ ethers v6 -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top, #1a1a2e, #0f172a);
+      color: white;
+      text-align: center;
+    }
+
+    h1 { margin-top: 20px; }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      background: gold;
+      cursor: pointer;
+      margin: 5px;
+      font-weight: bold;
+    }
+
+    input {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      width: 120px;
+      text-align: center;
+    }
+
+    .cards {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    .card3d {
+      width: 100px;
+      height: 140px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+    }
+
+    .card3d.flip .inner {
+      transform: rotateY(180deg);
+    }
+
+    .front, .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .front { transform: rotateY(180deg); }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .selected {
+      outline: 3px solid gold;
+      transform: scale(1.1);
+    }
+
+    .win { box-shadow: 0 0 20px lime; }
+    .lose { box-shadow: 0 0 20px red; }
+
+    #result {
+      margin-top: 30px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="header">
-  <div>👑 Find the King</div>
+<h1>👑 King Game</h1>
+
+<button onclick="connectWallet()">🔗 Connect Wallet</button>
+
+<div>
+  <input id="bet" type="number" placeholder="Bet ETH">
+  <button onclick="confirmPick()">🎯 Confirm</button>
 </div>
 
-<div class="game-card">
-
-<input id="bet" type="number" placeholder="Enter bet (ETH)" oninput="updateInfo()">
-
-<div id="info"></div>
-
-<button id="startBtn" onclick="startGame()">Start</button>
-<button id="shuffleBtn" onclick="shuffleCards()" style="display:none;">Shuffle</button>
-<button id="againBtn" onclick="resetGame()" style="display:none;">Play Again</button>
-
-<div class="grid king-grid" id="grid"></div>
-
+<div class="cards" id="cards"></div>
 <div id="result"></div>
 
-</div>
+<script type="module">
+import { playKing } from "./game.js";
 
-<script>
-let cards = []
-let bet = 0
-let shuffled = false
+let selectedIndex = null;
+let isPlaying = false;
 
-// 🔹 Live bet info
-function updateInfo(){
-  bet = parseFloat(document.getElementById("bet").value)
+// ================= WALLET =================
+window.connectWallet = async function () {
+  if (!window.ethereum) return alert("Install MetaMask");
+  await window.ethereum.request({ method: "eth_requestAccounts" });
+  alert("✅ Wallet Connected");
+};
 
-  if(!bet || bet <= 0){
-    document.getElementById("info").innerHTML = ""
-    return
-  }
+// ================= RENDER =================
+function renderCards() {
+  const container = document.getElementById("cards");
+  container.innerHTML = "";
 
-  document.getElementById("info").innerHTML = `
-  💰 Bet: ${bet} ETH <br>
-  👑 Find the King <br>
-  🎯 Win (2x): ${(bet*2).toFixed(4)} ETH <br>
-  ❌ Wrong card: Lose everything
-  `
-}
+  const preview = ["king", "queen", "queen"]
+    .sort(() => Math.random() - 0.5);
 
-// 🔹 Start game
-function startGame(){
-  if(!bet || bet <= 0){
-    alert("Enter valid bet")
-    return
-  }
-
-  // initial setup (NOT shuffled yet)
-  cards = ["king","queen","queen"]
-
-  renderCards(true)
-
-  shuffled = false
-  document.getElementById("result").innerText = ""
-
-  document.getElementById("startBtn").style.display = "none"
-  document.getElementById("shuffleBtn").style.display = "inline-block"
-  document.getElementById("againBtn").style.display = "none"
-
-  // preview cards then hide
-  setTimeout(()=>flipAll(false),2000)
-}
-
-// 🔹 Render cards
-function renderCards(showFront){
-  const grid = document.getElementById("grid")
-  grid.innerHTML = ""
-
-  cards.forEach((type,i)=>{
-    const card = document.createElement("div")
-    card.className = "card3d"
+  preview.forEach((type, i) => {
+    const card = document.createElement("div");
+    card.className = "card3d";
 
     card.innerHTML = `
       <div class="inner">
         <div class="front">
-          <img src="${type === "king" ? "king.jpeg" : "queen.jpeg"}">
+          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/${type}.png"
+               style="filter: blur(8px); opacity:0.6;">
         </div>
         <div class="back">
-          <img src="card-back.png">
+          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/card-back.png">
         </div>
       </div>
-    `
+    `;
 
-    if(showFront){
-      card.classList.add("show")
+    card.onclick = () => selectCard(i);
+    container.appendChild(card);
+  });
+}
+
+// ================= SELECT =================
+function selectCard(index) {
+  if (isPlaying) return;
+
+  selectedIndex = index;
+
+  let all = document.querySelectorAll(".card3d");
+  all.forEach(c => c.classList.remove("selected"));
+  all[index].classList.add("selected");
+}
+
+// ================= REVEAL =================
+function revealCards(kingIndex) {
+  const all = document.querySelectorAll(".card3d");
+
+  all.forEach((card, i) => {
+    const img = card.querySelector(".front img");
+
+    if (i === kingIndex) {
+      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/king.png";
     } else {
-      card.classList.remove("show")
+      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/queen.png";
     }
 
-    card.onclick = () => pickCard(i)
-
-    grid.appendChild(card)
-  })
+    img.style.filter = "none";
+    img.style.opacity = "1";
+  });
 }
 
-// 🔹 Flip all cards
-function flipAll(showFront){
-  let cardsEl = document.querySelectorAll(".card3d")
+// ================= FLIP =================
+function flipAll(show) {
+  document.querySelectorAll(".card3d").forEach(card => {
+    show ? card.classList.add("flip") : card.classList.remove("flip");
+  });
+}
 
-  cardsEl.forEach(c=>{
-    if(showFront){
-      c.classList.add("show")
+// ================= PLAY =================
+window.confirmPick = async function () {
+  const bet = document.getElementById("bet").value;
+
+  if (selectedIndex === null) return alert("Select card");
+  if (!bet || bet <= 0) return alert("Invalid bet");
+  if (isPlaying) return;
+
+  const resultBox = document.getElementById("result");
+
+  try {
+    isPlaying = true;
+    resultBox.innerText = "⏳ Playing...";
+
+    const res = await playKing(Number(selectedIndex), bet);
+
+    // 🔥 sync UI with contract
+    revealCards(res.kingIndex);
+
+    // delay for suspense
+    await new Promise(r => setTimeout(r, 600));
+
+    flipAll(true);
+
+    let all = document.querySelectorAll(".card3d");
+
+    if (res.win) {
+      all[selectedIndex].classList.add("win");
+      resultBox.innerText = "🎉 YOU WON!";
     } else {
-      c.classList.remove("show")
-    }
-  })
-}
-
-// 🔹 REAL shuffle (FIXED)
-function shuffleCards(){
-  if(shuffled) return
-
-  shuffled = true
-
-  const grid = document.getElementById("grid")
-  let cardsEl = document.querySelectorAll(".card3d")
-
-  // 🎰 animation
-  cardsEl.forEach((card)=>{
-    card.style.transition = "transform 0.4s"
-    card.style.transform = `translateY(-20px) rotate(${Math.random()*180}deg)`
-  })
-
-  setTimeout(()=>{
-    // ✅ Fisher-Yates shuffle (REAL randomness)
-    for(let i = cards.length - 1; i > 0; i--){
-      let j = Math.floor(Math.random() * (i + 1))
-      ;[cards[i], cards[j]] = [cards[j], cards[i]]
+      all[selectedIndex].classList.add("lose");
+      all[res.kingIndex].classList.add("win");
+      resultBox.innerText = `❌ Lost! King was ${res.kingIndex}`;
     }
 
-    // reset animation
-    cardsEl.forEach(card=>{
-      card.style.transform = "translateY(0px) rotate(0deg)"
-    })
-
-    // 🔥 re-render cards in NEW order
-    renderCards(false)
-
-  }, 400)
-}
-
-// 🔹 Pick card
-function pickCard(index){
-  if(!shuffled) return
-
-  flipAll(true)
-
-  let all = document.querySelectorAll(".card3d")
-  let result = document.getElementById("result")
-
-  if(cards[index] === "king"){
-    all[index].classList.add("win")
-    result.innerText = `🎉 You WON ${(bet*2).toFixed(4)} ETH`
-  } else {
-    all[index].classList.add("lose")
-
-    cards.forEach((c,i)=>{
-      if(c === "king"){
-        all[i].classList.add("win")
-      }
-    })
-
-    result.innerText = "❌ You LOST"
+  } catch (err) {
+    console.error(err);
+    resultBox.innerText = "❌ Transaction failed";
+  } finally {
+    isPlaying = false;
   }
+};
 
-  document.getElementById("againBtn").style.display = "inline-block"
-}
+// INIT
+renderCards();
 
-// 🔹 Reset game
-function resetGame(){
-  document.getElementById("grid").innerHTML = ""
-  document.getElementById("result").innerText = ""
-  document.getElementById("info").innerHTML = ""
-  document.getElementById("bet").value = ""
-
-  document.getElementById("startBtn").style.display = "inline-block"
-  document.getElementById("shuffleBtn").style.display = "none"
-  document.getElementById("againBtn").style.display = "none"
-
-  shuffled = false
-}
 </script>
 
 </body>
-</html>                                                                                                                                                                                     
+</html>

@@ -1,185 +1,45 @@
 body{
-    margin:0;
-    font-family:'Segoe UI', sans-serif;
-    background: radial-gradient(circle at top, #1a1a2e, #0f172a);
-    color:white;
-    text-align:center;
+  margin:0;
+  font-family:Poppins;
+  background: radial-gradient(circle at top,#0f172a,#020617);
+  color:white;
+  text-align:center;
 }
 
-/* Header */
-.header{
-    display:flex;
-    justify-content:space-between;
-    padding:10px 20px;
-    background:rgba(255,255,255,0.05);
-    backdrop-filter:blur(10px);
-}
-
-.score{
-    font-size:18px;
-}
-
-/* Game Card */
+/* CARD */
 .game-card{
-    margin:20px auto;
-    padding:20px;
-    max-width:420px;
-    background:rgba(255,255,255,0.05);
-    border-radius:20px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+  margin:50px auto;
+  padding:30px;
+  width:320px;
+  border-radius:20px;
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(10px);
 }
 
-/* Input */
+/* INPUT */
 input{
-    padding:10px;
-    width:80%;
-    border-radius:10px;
-    border:none;
-    margin-bottom:10px;
-    text-align:center;
-    font-size:16px;
+  width:90%;
+  padding:12px;
+  margin:10px;
+  border-radius:10px;
+  border:none;
+  text-align:center;
 }
 
-/* Buttons */
+/* BUTTON */
 button{
-    padding:12px 20px;
-    border:none;
-    border-radius:10px;
-    background:linear-gradient(45deg,#ff416c,#ff4b2b);
-    color:white;
-    font-size:16px;
-    cursor:pointer;
-    margin:10px;
-    transition:0.3s;
+  margin:8px;
+  padding:12px 18px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  background:linear-gradient(45deg,#3b82f6,#06b6d4);
+  color:white;
+  font-weight:bold;
 }
 
-button:hover{
-    transform:scale(1.1);
-}
-
-/* Grid */
-.grid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:12px;
-    margin-top:20px;
-}
-
-/* Card */
-.card{
-    height:75px;
-    background:#0b0f1a;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:26px;
-    border-radius:12px;
-    cursor:pointer;
-    transition:0.3s;
-    box-shadow:0 5px 15px rgba(0,0,0,0.6);
-}
-
-/* Flipped */
-.flipped{
-    background:linear-gradient(135deg,#00f0ff,#00ffa6);
-    color:black;
-    transform:scale(1.05);
-}
-
-/* Matched */
-.matched{
-    background:linear-gradient(135deg,#22c55e,#4ade80);
-    color:black;
-}
-
-/* Shuffle alert */
-.shuffle-alert{
-    color:#f59e0b;
-    margin-top:10px;
-    font-size:14px;
-    animation:pulse 0.6s ease;
-}
-
-/* Pulse animation */
-@keyframes pulse{
-    0%{ transform:scale(1); opacity:0.7; }
-    50%{ transform:scale(1.2); opacity:1; }
-    100%{ transform:scale(1); opacity:0.7; }
-}
-
-/* Result */
+/* RESULT */
 #result{
-    margin-top:20px;
-    font-size:20px;
-    font-weight:bold;
-}
-
-/* KING GAME GRID FIX */
-.king-grid{
-    grid-template-columns:repeat(3,1fr);
-}
-
-/* 3D CARD */
-.card3d{
-    width:100%;
-    height:110px;
-    perspective:1000px;
-    cursor:pointer;
-}
-
-.inner{
-    width:100%;
-    height:100%;
-    position:relative;
-    transform-style:preserve-3d;
-    transition:transform 0.6s;
-}
-
-/* SHOW FRONT */
-.card3d.show .inner{
-    transform:rotateY(180deg);
-}
-
-/* SIDES */
-.front, .back{
-    position:absolute;
-    width:100%;
-    height:100%;
-    border-radius:12px;
-    backface-visibility:hidden;
-    overflow:hidden;
-}
-
-/* FRONT IMAGE */
-.front{
-    transform:rotateY(180deg);
-    background:white;
-}
-
-.front img{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-}
-
-/* BACK DESIGN */
-.back{
-    background:linear-gradient(135deg,#ff416c,#ff4b2b);
-    box-shadow:0 5px 15px rgba(0,0,0,0.6);
-}
-
-/* WIN / LOSE EFFECT */
-.win{
-    box-shadow:0 0 20px #22c55e;
-}
-
-.lose{
-    box-shadow:0 0 20px #ef4444;
-}
-
-/* card back image */
-.back img{
-    width:100%;
-    height:100%;
-    object-fit:cover;
+  margin-top:20px;
+  font-size:18px;
 }

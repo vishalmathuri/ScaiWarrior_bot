@@ -9,17 +9,19 @@ describe("CoinFlipCommitReveal", function () {
 
     const CoinFlip = await ethers.getContractFactory("CoinFlipCommitReveal");
     contract = await CoinFlip.deploy();
-    await contract.deployed();
+    await contract.waitForDeployment(); // ✅ FIX
+
+    const contractAddress = await contract.getAddress(); // ✅ FIX
 
     await owner.sendTransaction({
-      to: contract.address,
-      value: ethers.utils.parseEther("20"),
+      to: contractAddress,
+      value: ethers.parseEther("20"), // ✅ FIX
     });
   });
 
   function generateCommit(secret) {
-    return ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(secret)
+    return ethers.keccak256( // ✅ FIX
+      ethers.toUtf8Bytes(secret) // ✅ FIX
     );
   }
 
@@ -27,23 +29,20 @@ describe("CoinFlipCommitReveal", function () {
     const hash = generateCommit("test");
 
     const tx = await contract.connect(player).placeBet(true, hash, {
-      value: ethers.utils.parseEther("0.1"),
+      value: ethers.parseEther("0.1"), // ✅ FIX
     });
 
-    expect(tx.hash).to.exist; // basic check
+    expect(tx.hash).to.exist;
   });
 
   it("Should reject bet below minimum", async function () {
     const hash = generateCommit("test");
 
-    try {
-      await contract.connect(player).placeBet(true, hash, {
-        value: ethers.utils.parseEther("0.001"),
-      });
-      expect.fail("Transaction should fail");
-    } catch (err) {
-      expect(err.message).to.include("Invalid bet");
-    }
+    await expect(
+      contract.connect(player).placeBet(true, hash, {
+        value: ethers.parseEther("0.001"),
+      })
+    ).to.be.revertedWith("Invalid bet"); // ✅ FIX
   });
 
   it("Should resolve bet", async function () {
@@ -51,11 +50,10 @@ describe("CoinFlipCommitReveal", function () {
     const hash = generateCommit(secret);
 
     await contract.connect(player).placeBet(true, hash, {
-      value: ethers.utils.parseEther("0.1"),
+      value: ethers.parseEther("0.1"),
     });
 
     const tx = await contract.connect(player).reveal(0, secret);
-
     expect(tx.hash).to.exist;
   });
 
@@ -64,15 +62,12 @@ describe("CoinFlipCommitReveal", function () {
     const hash = generateCommit(secret);
 
     await contract.connect(player).placeBet(true, hash, {
-      value: ethers.utils.parseEther("0.1"),
+      value: ethers.parseEther("0.1"),
     });
 
-    try {
-      await contract.connect(player).reveal(0, "wrong");
-      expect.fail("Should fail");
-    } catch (err) {
-      expect(err.message).to.include("Invalid secret");
-    }
+    await expect(
+      contract.connect(player).reveal(0, "wrong")
+    ).to.be.revertedWith("Invalid secret"); // ✅ FIX
   });
 
   it("Should not allow double reveal", async function () {
@@ -80,24 +75,21 @@ describe("CoinFlipCommitReveal", function () {
     const hash = generateCommit(secret);
 
     await contract.connect(player).placeBet(true, hash, {
-      value: ethers.utils.parseEther("0.1"),
+      value: ethers.parseEther("0.1"),
     });
 
     await contract.connect(player).reveal(0, secret);
 
-    try {
-      await contract.connect(player).reveal(0, secret);
-      expect.fail("Should fail");
-    } catch (err) {
-      expect(err.message).to.include("Already revealed");
-    }
+    await expect(
+      contract.connect(player).reveal(0, secret)
+    ).to.be.revertedWith("Already revealed"); // ✅ FIX
   });
 
   it("Should allow refund after timeout", async function () {
     const hash = generateCommit("timeout");
 
     await contract.connect(player).placeBet(true, hash, {
-      value: ethers.utils.parseEther("0.1"),
+      value: ethers.parseEther("0.1"),
     });
 
     await ethers.provider.send("evm_increaseTime", [600]);
@@ -111,14 +103,11 @@ describe("CoinFlipCommitReveal", function () {
     const hash = generateCommit("early");
 
     await contract.connect(player).placeBet(true, hash, {
-      value: ethers.utils.parseEther("0.1"),
+      value: ethers.parseEther("0.1"),
     });
 
-    try {
-      await contract.connect(player).claimTimeout(0);
-      expect.fail("Should fail");
-    } catch (err) {
-      expect(err.message).to.include("Wait more");
-    }
+    await expect(
+      contract.connect(player).claimTimeout(0)
+    ).to.be.revertedWith("Wait more"); // ✅ FIX
   });
 });

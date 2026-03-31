@@ -71,9 +71,9 @@
 
   <div>
     <img id="dice1" class="dice"
-      src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/dice1.png">
+      src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice1.png">
     <img id="dice2" class="dice"
-      src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/dice1.png">
+      src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice1.png">
   </div>
 
   <input id="bet" type="number" step="0.01" placeholder="Enter ETH">
@@ -148,8 +148,8 @@ function startRolling() {
     const r1 = Math.floor(Math.random() * 6) + 1;
     const r2 = Math.floor(Math.random() * 6) + 1;
 
-    d1.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/dice${r1}.png`;
-    d2.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/dice${r2}.png`;
+    d1.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${r1}.png`;
+    d2.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${r2}.png`;
   }, 100);
 }
 
@@ -165,8 +165,8 @@ listenDiceResult((data) => {
   const d1 = document.getElementById("dice1");
   const d2 = document.getElementById("dice2");
 
-  d1.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/dice${data.d1}.png`;
-  d2.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/dice${data.d2}.png`;
+  d1.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${data.d1}.png`;
+  d2.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${data.d2}.png`;
 
   const resultBox = document.getElementById("result");
   const bet = Number(document.getElementById("bet").value);

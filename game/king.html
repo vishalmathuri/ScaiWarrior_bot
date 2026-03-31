@@ -136,11 +136,11 @@ function renderCards() {
     card.innerHTML = `
       <div class="inner">
         <div class="front">
-          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/${type}.png"
+          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/${type}.png"
                style="filter: blur(8px); opacity:0.6;">
         </div>
         <div class="back">
-          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/card-back.png">
+          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/card-back.png">
         </div>
       </div>
     `;
@@ -169,9 +169,9 @@ function revealCards(kingIndex) {
     const img = card.querySelector(".front img");
 
     if (i === kingIndex) {
-      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/king.png";
+      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/king.png";
     } else {
-      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/queen.png";
+      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/queen.png";
     }
 
     img.style.filter = "none";

@@ -5,27 +5,26 @@ let signer;
 let ethersProvider;
 
 // ================= CONNECT WALLET =================
+// ================= CONNECT WALLET =================
 export async function connectWallet() {
   try {
     if (signer) return await signer.getAddress();
 
-    const { EthereumProvider } = await import(
-      "https://esm.sh/@walletconnect/ethereum-provider@2.11.0"
-    );
+    // ✅ FIX: use UMD version (Telegram safe)
+    const EthereumProvider = window.EthereumProvider;
+
+    if (!EthereumProvider) {
+      alert("WalletConnect not loaded");
+      return null;
+    }
 
     provider = await EthereumProvider.init({
       projectId: "2cdf3feb2a94aeea53e56d863bb42eb4",
       chains: [1],
-
       showQrModal: true,
 
-      // ✅ IMPROVED MODAL
       qrModalOptions: {
-        themeMode: "dark",
-        explorerRecommendedWalletIds: [
-          "4622a2b2d6afc5d1f2b9c1b4d3b7d3a6", // Trust
-          "4622a2b2d6afc5d1f2b9c1b4d3b7d3a7"  // Coinbase
-        ]
+        themeMode: "dark"
       }
     });
 

@@ -1,21 +1,45 @@
 import { CONTRACTS } from "./config.js";
 
-// ================= GLOBAL =================
 let provider;
 let signer;
+let ethersProvider;
 
 // ================= CONNECT WALLET =================
 export async function connectWallet() {
-  if (!window.ethereum) {
-    alert("Install MetaMask");
+  try {
+    if (signer) return await signer.getAddress();
+
+    const { EthereumProvider } = await import(
+      "https://esm.sh/@walletconnect/ethereum-provider@2.11.0"
+    );
+
+    provider = await EthereumProvider.init({
+      projectId: "2cdf3feb2a94aeea53e56d863bb42eb4",
+      chains: [1],
+
+      showQrModal: true,
+
+      // ✅ IMPROVED MODAL
+      qrModalOptions: {
+        themeMode: "dark",
+        explorerRecommendedWalletIds: [
+          "4622a2b2d6afc5d1f2b9c1b4d3b7d3a6", // Trust
+          "4622a2b2d6afc5d1f2b9c1b4d3b7d3a7"  // Coinbase
+        ]
+      }
+    });
+
+    await provider.connect();
+
+    ethersProvider = new window.ethers.BrowserProvider(provider);
+    signer = await ethersProvider.getSigner();
+
+    return await signer.getAddress();
+
+  } catch (err) {
+    console.error("Wallet error:", err);
     return null;
   }
-
-  provider = new window.ethers.BrowserProvider(window.ethereum);
-  await provider.send("eth_requestAccounts", []);
-  signer = await provider.getSigner();
-
-  return await signer.getAddress();
 }
 
 // ================= ENSURE SIGNER =================
@@ -23,12 +47,15 @@ async function getSigner() {
   if (!signer) {
     await connectWallet();
   }
+
+  if (!signer) {
+    throw new Error("Wallet not connected");
+  }
+
   return signer;
 }
 
-// ================= COINFLIP ABI =================
-// ================= COINFLIP ABI =================
-// ================= COINFLIP ABI =================
+// ================= COINFLIP =================
 const coinflipABI = [
   "function placeBet(bool guess, bytes32 commitHash) payable",
   "function reveal(uint256 betId, string memory secret)",
@@ -36,7 +63,6 @@ const coinflipABI = [
   "event BetRevealed(uint256 betId, bool win, uint payout)"
 ];
 
-// ================= PLAY COINFLIP =================
 export async function playCoinFlip(choice, bet) {
   const signer = await getSigner();
 
@@ -52,7 +78,6 @@ export async function playCoinFlip(choice, bet) {
     window.ethers.toUtf8Bytes(secret)
   );
 
-  // 🎯 PLACE BET
   const tx = await contract.placeBet(choice, hash, {
     value: window.ethers.parseEther(bet.toString())
   });
@@ -72,14 +97,11 @@ export async function playCoinFlip(choice, bet) {
 
   if (betId === undefined) throw new Error("Bet ID not found");
 
-  // ⏳ small delay
   await new Promise((r) => setTimeout(r, 2500));
 
-  // 🎯 REVEAL
   const tx2 = await contract.reveal(betId, secret);
   const receipt2 = await tx2.wait();
 
-  // ✅ GET RESULT DIRECTLY
   for (let log of receipt2.logs) {
     try {
       const parsed = contract.interface.parseLog(log);
@@ -97,15 +119,12 @@ export async function playCoinFlip(choice, bet) {
   throw new Error("Result not found");
 }
 
-
-// ================= DICE ABI =================
+// ================= DICE =================
 const diceABI = [
   "function play(uint choice) payable",
   "event DicePlayed(address player, uint bet, uint dice1, uint dice2, uint total, uint choice, bool win)"
 ];
 
-// ================= PLAY DICE =================
-// ================= PLAY DICE =================
 export async function playDice(choice, bet) {
   const signer = await getSigner();
 
@@ -119,10 +138,6 @@ export async function playDice(choice, bet) {
     return;
   }
 
-  console.log("🎲 Playing Dice");
-  console.log("Choice:", choice);
-  console.log("Bet:", bet);
-
   const contract = new window.ethers.Contract(
     CONTRACTS.dice,
     diceABI,
@@ -134,11 +149,7 @@ export async function playDice(choice, bet) {
       value: window.ethers.parseEther(bet.toString())
     });
 
-    console.log("TX sent:", tx.hash);
-
     await tx.wait();
-
-    console.log("✅ Dice played successfully");
 
   } catch (err) {
     console.error("❌ Dice error:", err);
@@ -147,14 +158,17 @@ export async function playDice(choice, bet) {
   }
 }
 
-// ================= LISTEN DICE =================
+// ✅ FIXED LISTENER (WalletConnect compatible)
 export function listenDiceResult(callback) {
-  const provider = new window.ethers.BrowserProvider(window.ethereum);
+  if (!ethersProvider) {
+    console.warn("Wallet not connected yet");
+    return;
+  }
 
   const contract = new window.ethers.Contract(
     CONTRACTS.dice,
     diceABI,
-    provider
+    ethersProvider
   );
 
   contract.on(
@@ -171,13 +185,12 @@ export function listenDiceResult(callback) {
   );
 }
 
-// ================= WHEEL ABI =================
+// ================= WHEEL =================
 const wheelABI = [
   "function spin() payable",
   "event SpinResult(address player, uint index, uint multiplier, uint payout)"
 ];
 
-// ================= SPIN WHEEL =================
 export async function spinWheel(bet) {
   const signer = await getSigner();
 
@@ -194,12 +207,6 @@ export async function spinWheel(bet) {
 
     const receipt = await tx.wait();
 
-    // ❌ If reverted (extra safety)
-    if (receipt.status === 0) {
-      throw new Error("Transaction reverted");
-    }
-
-    // 🔥 READ EVENT
     for (let log of receipt.logs) {
       try {
         const parsed = contract.interface.parseLog(log);
@@ -209,34 +216,27 @@ export async function spinWheel(bet) {
             index: Number(parsed.args.index),
             multiplier: Number(parsed.args.multiplier),
             payout: window.ethers.formatEther(parsed.args.payout),
-
-            // ✅ FIXED LOGIC
             win: Number(parsed.args.multiplier) > 0
           };
         }
-      } catch (e) {}
+      } catch {}
     }
 
     throw new Error("Event not found");
 
   } catch (err) {
     console.error("Wheel Error:", err);
-
-    // 🔥 USER FRIENDLY ERROR
-    alert("❌ Transaction failed or reverted");
-
+    alert("❌ Transaction failed");
     throw err;
   }
 }
 
-// ================= ABI =================
+// ================= KING =================
 const kingABI = [
   "function play(uint guessIndex) payable",
   "event Played(address player, uint bet, uint kingIndex, uint guess, bool win)"
 ];
 
-// ================= PLAY KING =================
-// ================= PLAY KING =================
 export async function playKing(choice, bet) {
   const signer = await getSigner();
 
@@ -247,16 +247,10 @@ export async function playKing(choice, bet) {
   );
 
   try {
-    // ✅ FORCE CLEAN INPUTS
     const cleanChoice = parseInt(choice);
     const cleanBet = parseFloat(bet);
 
-    console.log("👉 Raw choice:", choice);
-    console.log("👉 Clean choice:", cleanChoice);
-    console.log("👉 Bet:", cleanBet);
-
-    // ✅ STRICT VALIDATION (PREVENT REVERT)
-    if (cleanChoice === undefined || cleanChoice === null || cleanChoice < 0 || cleanChoice > 2) {
+    if (cleanChoice < 0 || cleanChoice > 2) {
       alert("❌ Invalid card selected");
       throw new Error("Invalid index");
     }
@@ -266,19 +260,12 @@ export async function playKing(choice, bet) {
       throw new Error("Invalid bet");
     }
 
-    // ✅ SEND TX
     const tx = await contract.play(cleanChoice, {
       value: window.ethers.parseEther(cleanBet.toString())
     });
 
-    console.log("⏳ Waiting...");
     const receipt = await tx.wait();
 
-    if (receipt.status === 0) {
-      throw new Error("Transaction reverted");
-    }
-
-    // ✅ READ RESULT
     for (let log of receipt.logs) {
       try {
         const parsed = contract.interface.parseLog(log);
@@ -297,7 +284,6 @@ export async function playKing(choice, bet) {
 
   } catch (err) {
     console.error("❌ King Error:", err);
-
     alert(err.message || "Transaction failed");
     throw err;
   }

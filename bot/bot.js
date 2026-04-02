@@ -15,7 +15,7 @@ bot.onText(/\/start/, (msg) => {
             {
               text: "🎮 Open Games",
               web_app: {
-                url: "https://scai-warrior-1jdm08pdd-vishal-mathuris-projects.vercel.app/"
+                url: "https://scai-warrior.vercel.app/"
               }
             }
           ]

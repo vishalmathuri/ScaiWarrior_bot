@@ -9,7 +9,6 @@
   <!-- Ethers -->
   <script src="https://unpkg.com/ethers@6.10.0/dist/ethers.umd.min.js"></script>
 
-  <!-- Fix favicon error -->
   <link rel="icon" href="data:,">
 
   <style>
@@ -21,9 +20,7 @@
       text-align:center;
     }
 
-    .header {
-      padding:20px;
-    }
+    .header { padding:20px; }
 
     .title {
       font-size:30px;
@@ -61,9 +58,14 @@
       border:none;
       border-radius:10px;
       cursor:pointer;
+      margin:5px;
       background:linear-gradient(45deg,#3b82f6,#06b6d4);
       color:white;
       font-weight:bold;
+    }
+
+    .okx-btn {
+      background:linear-gradient(45deg,#22c55e,#16a34a);
     }
   </style>
 </head>
@@ -73,7 +75,9 @@
   <div class="header">
     <div class="title">🎰 Web3 Casino</div>
 
+    <!-- ✅ WALLET BUTTONS -->
     <button id="connectBtn">Connect Wallet</button>
+    <button class="okx-btn" onclick="openOKX()">Open OKX Wallet</button>
 
     <div id="wallet" class="wallet">Not connected</div>
   </div>
@@ -92,29 +96,37 @@
     const walletText = document.getElementById("wallet");
 
     btn.onclick = async () => {
-      try {
-        const address = await connectWallet();
+      const address = await connectWallet();
 
-        if (!address) {
-          walletText.innerText = "❌ Not connected";
-          return;
-        }
-
-        walletText.innerText =
-          "Connected: " +
-          address.slice(0, 6) +
-          "..." +
-          address.slice(-4);
-
-      } catch (err) {
-        console.error(err);
-        walletText.innerText = "❌ Connection failed";
+      if (!address) {
+        walletText.innerText = "❌ Not connected";
+        return;
       }
+
+      walletText.innerText =
+        "Connected: " +
+        address.slice(0, 6) +
+        "..." +
+        address.slice(-4);
+    };
+
+    // ✅ OKX DEEP LINK
+    window.openOKX = () => {
+      const url = window.location.href;
+
+      window.location.href =
+        "okx://wallet/dapp/url?dappUrl=" + encodeURIComponent(url);
     };
 
     window.go = (page) => {
       window.location.href = page;
     };
+
+    // ✅ SMART HINT (Mobile Users)
+    const isMobile = /Android|iPhone/i.test(navigator.userAgent);
+    if (isMobile) {
+      console.log("📱 Mobile detected - suggest OKX Wallet");
+    }
   </script>
 
 </body>

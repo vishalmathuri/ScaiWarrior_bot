@@ -9,10 +9,9 @@
   <!-- Ethers -->
   <script src="https://unpkg.com/ethers@6.10.0/dist/ethers.umd.min.js"></script>
 
-  <!-- ✅ WalletConnect UMD (FIXED) -->
+  <!-- WalletConnect -->
   <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.min.js"></script>
 
-  <!-- Fix favicon -->
   <link rel="icon" href="data:,">
 
   <style>
@@ -24,20 +23,11 @@
       text-align:center;
     }
 
-    .header {
-      padding:20px;
-    }
+    .header { padding:20px; }
 
-    .title {
-      font-size:30px;
-      margin-bottom:10px;
-    }
+    .title { font-size:30px; margin-bottom:10px; }
 
-    .wallet {
-      font-size:12px;
-      color:#22c55e;
-      margin-top:10px;
-    }
+    .wallet { font-size:12px; color:#22c55e; margin-top:10px; }
 
     .grid {
       display:grid;
@@ -77,7 +67,6 @@
     <div class="title">🎰 Web3 Casino</div>
 
     <button id="connectBtn">Connect Wallet</button>
-
     <div id="wallet" class="wallet">Not connected</div>
   </div>
 
@@ -91,12 +80,18 @@
   <script type="module">
     import { connectWallet } from "./game.js";
 
-    // ✅ Telegram safe init
     const tg = window.Telegram.WebApp;
     tg.expand();
 
     const btn = document.getElementById("connectBtn");
     const walletText = document.getElementById("wallet");
+
+    // ✅ Auto reconnect
+    const saved = localStorage.getItem("wallet");
+    if (saved) {
+      walletText.innerText =
+        "Connected: " + saved.slice(0,6) + "..." + saved.slice(-4);
+    }
 
     btn.onclick = async () => {
       try {
@@ -108,6 +103,8 @@
           walletText.innerText = "❌ Not connected";
           return;
         }
+
+        localStorage.setItem("wallet", address);
 
         walletText.innerText =
           "Connected: " +

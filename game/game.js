@@ -5,12 +5,36 @@ let signer;
 let ethersProvider;
 
 // ================= CONNECT WALLET =================
-// ================= CONNECT WALLET =================
 export async function connectWallet() {
   try {
     if (signer) return await signer.getAddress();
 
-    // ✅ FIX: use UMD version (Telegram safe)
+    // ✅ 1. Browser wallet (OKX / MetaMask)
+    if (window.ethereum) {
+      ethersProvider = new window.ethers.BrowserProvider(window.ethereum);
+
+      // Request account
+      await ethersProvider.send("eth_requestAccounts", []);
+
+      // 🔥 Force Sepolia
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0xaa36a7" }] // Sepolia
+      });
+
+      signer = await ethersProvider.getSigner();
+
+      // 🔍 DEBUG
+      const address = await signer.getAddress();
+      const balance = await ethersProvider.getBalance(address);
+
+      console.log("✅ Connected (Browser):", address);
+      console.log("💰 Balance:", window.ethers.formatEther(balance));
+
+      return address;
+    }
+
+    // ✅ 2. WalletConnect (Telegram)
     const EthereumProvider = window.EthereumProvider;
 
     if (!EthereumProvider) {
@@ -20,23 +44,36 @@ export async function connectWallet() {
 
     provider = await EthereumProvider.init({
       projectId: "2cdf3feb2a94aeea53e56d863bb42eb4",
-      chains: [1],
+      chains: [11155111], // ✅ Sepolia
       showQrModal: true,
-
       qrModalOptions: {
         themeMode: "dark"
       }
     });
 
-    await provider.connect();
+    await provider.enable();
+
+    // 🔥 Force Sepolia (WalletConnect)
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0xaa36a7" }]
+    });
 
     ethersProvider = new window.ethers.BrowserProvider(provider);
     signer = await ethersProvider.getSigner();
 
-    return await signer.getAddress();
+    // 🔍 DEBUG
+    const address = await signer.getAddress();
+    const balance = await ethersProvider.getBalance(address);
+
+    console.log("✅ Connected (WC):", address);
+    console.log("💰 Balance:", window.ethers.formatEther(balance));
+
+    return address;
 
   } catch (err) {
-    console.error("Wallet error:", err);
+    console.error("❌ Wallet error:", err);
+    alert("Wallet connection failed");
     return null;
   }
 }
@@ -54,6 +91,19 @@ async function getSigner() {
   return signer;
 }
 
+// ================= BALANCE CHECK =================
+async function checkBalance(bet) {
+  const address = await signer.getAddress();
+  const balance = await ethersProvider.getBalance(address);
+
+  const required = window.ethers.parseEther(bet.toString());
+
+  if (balance < required) {
+    alert("❌ Not enough ETH\nBalance: " + window.ethers.formatEther(balance));
+    throw new Error("Insufficient funds");
+  }
+}
+
 // ================= COINFLIP =================
 const coinflipABI = [
   "function placeBet(bool guess, bytes32 commitHash) payable",
@@ -64,6 +114,8 @@ const coinflipABI = [
 
 export async function playCoinFlip(choice, bet) {
   const signer = await getSigner();
+
+  await checkBalance(bet); // ✅ prevent error
 
   const contract = new window.ethers.Contract(
     CONTRACTS.coinflip,
@@ -94,9 +146,7 @@ export async function playCoinFlip(choice, bet) {
     } catch {}
   }
 
-  if (betId === undefined) throw new Error("Bet ID not found");
-
-  await new Promise((r) => setTimeout(r, 2500));
+  await new Promise(r => setTimeout(r, 2500));
 
   const tx2 = await contract.reveal(betId, secret);
   const receipt2 = await tx2.wait();
@@ -104,10 +154,8 @@ export async function playCoinFlip(choice, bet) {
   for (let log of receipt2.logs) {
     try {
       const parsed = contract.interface.parseLog(log);
-
       if (parsed.name === "BetRevealed") {
         return {
-          betId: betId.toString(),
           win: parsed.args.win,
           amount: window.ethers.formatEther(parsed.args.payout)
         };
@@ -120,22 +168,13 @@ export async function playCoinFlip(choice, bet) {
 
 // ================= DICE =================
 const diceABI = [
-  "function play(uint choice) payable",
-  "event DicePlayed(address player, uint bet, uint dice1, uint dice2, uint total, uint choice, bool win)"
+  "function play(uint choice) payable"
 ];
 
 export async function playDice(choice, bet) {
   const signer = await getSigner();
 
-  if (choice === undefined || choice === null) {
-    alert("Please select a choice");
-    return;
-  }
-
-  if (!bet || bet <= 0) {
-    alert("Enter valid bet");
-    return;
-  }
+  await checkBalance(bet);
 
   const contract = new window.ethers.Contract(
     CONTRACTS.dice,
@@ -143,45 +182,11 @@ export async function playDice(choice, bet) {
     signer
   );
 
-  try {
-    const tx = await contract.play(choice, {
-      value: window.ethers.parseEther(bet.toString())
-    });
+  const tx = await contract.play(choice, {
+    value: window.ethers.parseEther(bet.toString())
+  });
 
-    await tx.wait();
-
-  } catch (err) {
-    console.error("❌ Dice error:", err);
-    alert("Transaction failed");
-    throw err;
-  }
-}
-
-// ✅ FIXED LISTENER (WalletConnect compatible)
-export function listenDiceResult(callback) {
-  if (!ethersProvider) {
-    console.warn("Wallet not connected yet");
-    return;
-  }
-
-  const contract = new window.ethers.Contract(
-    CONTRACTS.dice,
-    diceABI,
-    ethersProvider
-  );
-
-  contract.on(
-    "DicePlayed",
-    (player, bet, d1, d2, total, choice, win) => {
-      callback({
-        d1,
-        d2,
-        total,
-        win,
-        amount: window.ethers.formatEther(bet)
-      });
-    }
-  );
+  await tx.wait();
 }
 
 // ================= WHEEL =================
@@ -193,51 +198,43 @@ const wheelABI = [
 export async function spinWheel(bet) {
   const signer = await getSigner();
 
+  await checkBalance(bet);
+
   const contract = new window.ethers.Contract(
     CONTRACTS.wheel,
     wheelABI,
     signer
   );
 
-  try {
-    const tx = await contract.spin({
-      value: window.ethers.parseEther(bet.toString())
-    });
+  const tx = await contract.spin({
+    value: window.ethers.parseEther(bet.toString())
+  });
 
-    const receipt = await tx.wait();
+  const receipt = await tx.wait();
 
-    for (let log of receipt.logs) {
-      try {
-        const parsed = contract.interface.parseLog(log);
-
-        if (parsed.name === "SpinResult") {
-          return {
-            index: Number(parsed.args.index),
-            multiplier: Number(parsed.args.multiplier),
-            payout: window.ethers.formatEther(parsed.args.payout),
-            win: Number(parsed.args.multiplier) > 0
-          };
-        }
-      } catch {}
-    }
-
-    throw new Error("Event not found");
-
-  } catch (err) {
-    console.error("Wheel Error:", err);
-    alert("❌ Transaction failed");
-    throw err;
+  for (let log of receipt.logs) {
+    try {
+      const parsed = contract.interface.parseLog(log);
+      if (parsed.name === "SpinResult") {
+        return {
+          index: Number(parsed.args.index),
+          multiplier: Number(parsed.args.multiplier),
+          payout: window.ethers.formatEther(parsed.args.payout)
+        };
+      }
+    } catch {}
   }
 }
 
 // ================= KING =================
 const kingABI = [
-  "function play(uint guessIndex) payable",
-  "event Played(address player, uint bet, uint kingIndex, uint guess, bool win)"
+  "function play(uint guessIndex) payable"
 ];
 
 export async function playKing(choice, bet) {
   const signer = await getSigner();
+
+  await checkBalance(bet);
 
   const contract = new window.ethers.Contract(
     CONTRACTS.king,
@@ -245,45 +242,11 @@ export async function playKing(choice, bet) {
     signer
   );
 
-  try {
-    const cleanChoice = parseInt(choice);
-    const cleanBet = parseFloat(bet);
+  const tx = await contract.play(choice, {
+    value: window.ethers.parseEther(bet.toString())
+  });
 
-    if (cleanChoice < 0 || cleanChoice > 2) {
-      alert("❌ Invalid card selected");
-      throw new Error("Invalid index");
-    }
+  const receipt = await tx.wait();
 
-    if (!cleanBet || cleanBet <= 0) {
-      alert("❌ Enter valid bet");
-      throw new Error("Invalid bet");
-    }
-
-    const tx = await contract.play(cleanChoice, {
-      value: window.ethers.parseEther(cleanBet.toString())
-    });
-
-    const receipt = await tx.wait();
-
-    for (let log of receipt.logs) {
-      try {
-        const parsed = contract.interface.parseLog(log);
-
-        if (parsed.name === "Played") {
-          return {
-            kingIndex: Number(parsed.args.kingIndex),
-            guess: Number(parsed.args.guess),
-            win: parsed.args.win
-          };
-        }
-      } catch {}
-    }
-
-    throw new Error("Result not found");
-
-  } catch (err) {
-    console.error("❌ King Error:", err);
-    alert(err.message || "Transaction failed");
-    throw err;
-  }
+  return receipt;
 }

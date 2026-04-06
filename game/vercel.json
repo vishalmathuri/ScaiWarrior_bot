@@ -2,7 +2,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/game/index.html"
+      "dest": "/index.html"
     }
   ]
 }

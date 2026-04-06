@@ -9,32 +9,33 @@ export async function connectWallet() {
   try {
     if (signer) return await signer.getAddress();
 
-    // ✅ 1. Browser wallet (OKX / MetaMask)
-    if (window.ethereum) {
+    const isTelegram = window.Telegram?.WebApp;
+    console.log("Is Telegram:", isTelegram);
+
+    // ================= BROWSER WALLET =================
+    if (window.ethereum && !isTelegram) {
       ethersProvider = new window.ethers.BrowserProvider(window.ethereum);
 
-      // Request account
       await ethersProvider.send("eth_requestAccounts", []);
 
-      // 🔥 Force Sepolia
+      // ✅ Force Sepolia
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }] // Sepolia
+        params: [{ chainId: "0xaa36a7" }]
       });
 
       signer = await ethersProvider.getSigner();
 
-      // 🔍 DEBUG
       const address = await signer.getAddress();
       const balance = await ethersProvider.getBalance(address);
 
-      console.log("✅ Connected (Browser):", address);
+      console.log("✅ Browser wallet connected:", address);
       console.log("💰 Balance:", window.ethers.formatEther(balance));
 
       return address;
     }
 
-    // ✅ 2. WalletConnect (Telegram)
+    // ================= WALLETCONNECT (TELEGRAM) =================
     const EthereumProvider = window.EthereumProvider;
 
     if (!EthereumProvider) {
@@ -44,7 +45,7 @@ export async function connectWallet() {
 
     provider = await EthereumProvider.init({
       projectId: "2cdf3feb2a94aeea53e56d863bb42eb4",
-      chains: [11155111], // ✅ Sepolia
+      chains: [11155111], // Sepolia
       showQrModal: true,
       qrModalOptions: {
         themeMode: "dark"
@@ -53,7 +54,7 @@ export async function connectWallet() {
 
     await provider.enable();
 
-    // 🔥 Force Sepolia (WalletConnect)
+    // ✅ Force Sepolia
     await provider.request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: "0xaa36a7" }]
@@ -62,11 +63,10 @@ export async function connectWallet() {
     ethersProvider = new window.ethers.BrowserProvider(provider);
     signer = await ethersProvider.getSigner();
 
-    // 🔍 DEBUG
     const address = await signer.getAddress();
     const balance = await ethersProvider.getBalance(address);
 
-    console.log("✅ Connected (WC):", address);
+    console.log("✅ WalletConnect used (Telegram):", address);
     console.log("💰 Balance:", window.ethers.formatEther(balance));
 
     return address;
@@ -115,7 +115,7 @@ const coinflipABI = [
 export async function playCoinFlip(choice, bet) {
   const signer = await getSigner();
 
-  await checkBalance(bet); // ✅ prevent error
+  await checkBalance(bet);
 
   const contract = new window.ethers.Contract(
     CONTRACTS.coinflip,

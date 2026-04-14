@@ -1,132 +1,206 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Web3 Casino</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web3 Casino | Lobby</title>
 
-  <!-- ✅ FIX: WalletConnect support in Telegram -->
   <script>
     window.global = window;
     window.process = { env: {} };
   </script>
 
-  <!-- Telegram -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <!-- Ethers -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
-
-  <!-- WalletConnect (FIXED CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.js"></script>
 
-  <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
-    body {
-      margin:0;
-      font-family:Poppins;
-      background: radial-gradient(circle at top,#0f172a,#020617);
-      color:white;
-      text-align:center;
+    :root {
+      --primary: linear-gradient(45deg, #3b82f6, #06b6d4);
+      --bg: radial-gradient(circle at top, #0f172a, #020617);
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --card-hover: rgba(255, 255, 255, 0.1);
     }
 
-    .header { padding:20px; }
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      background-attachment: fixed;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-    .title { font-size:30px; margin-bottom:10px; }
+    .header { padding: 40px 20px; }
+    .title { font-size: 32px; font-weight: 600; margin-bottom: 8px; letter-spacing: -1px; }
+    .subtitle { color: #94a3b8; margin-bottom: 20px; font-size: 14px; }
 
-    .wallet { font-size:12px; color:#22c55e; margin-top:10px; }
+    .wallet-status {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      font-size: 13px;
+      margin-top: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .status-dot {
+      height: 8px;
+      width: 8px;
+      background-color: #ef4444; /* Red by default */
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    .connected .status-dot { background-color: #22c55e; }
 
     .grid {
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:15px;
-      padding:20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      padding: 0 20px 40px;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
     .card {
-      padding:20px;
-      border-radius:16px;
-      background:rgba(255,255,255,0.05);
-      cursor:pointer;
-      transition:0.2s;
+      padding: 30px 20px;
+      border-radius: 20px;
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
 
     .card:hover {
-      transform:scale(1.05);
-      background:rgba(255,255,255,0.1);
+      transform: translateY(-5px);
+      background: var(--card-hover);
+      border-color: #3b82f6;
     }
+
+    .card-icon { font-size: 40px; }
+    .card-name { font-weight: 600; font-size: 16px; }
 
     button {
-      padding:10px 20px;
-      border:none;
-      border-radius:10px;
-      cursor:pointer;
-      background:linear-gradient(45deg,#3b82f6,#06b6d4);
-      color:white;
-      font-weight:bold;
+      padding: 12px 28px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      font-size: 15px;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
     }
+
+    button:active { opacity: 0.8; transform: scale(0.98); }
+    
+    /* Loading state */
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
   </style>
 </head>
-
 <body>
 
   <div class="header">
     <div class="title">🎰 Web3 Casino</div>
+    <div class="subtitle">Fair games on Sepolia Testnet</div>
 
     <button id="connectBtn">Connect Wallet</button>
-    <div id="wallet" class="wallet">Not connected</div>
+    
+    <div id="walletContainer" class="wallet-status">
+      <span class="status-dot"></span>
+      <span id="walletText">Wallet Disconnected</span>
+    </div>
   </div>
 
   <div class="grid">
-    <div class="card" onclick="go('coinflip.html')">💰 CoinFlip</div>
-    <div class="card" onclick="go('dice.html')">🎲 Dice</div>
-    <div class="card" onclick="go('wheel.html')">🎡 Wheel</div>
-    <div class="card" onclick="go('king.html')">👑 King</div>
+    <div class="card" onclick="nav('coinflip.html')">
+      <span class="card-icon">💰</span>
+      <span class="card-name">CoinFlip</span>
+    </div>
+    <div class="card" onclick="nav('dice.html')">
+      <span class="card-icon">🎲</span>
+      <span class="card-name">Dice</span>
+    </div>
+    <div class="card" onclick="nav('wheel.html')">
+      <span class="card-icon">🎡</span>
+      <span class="card-name">Wheel</span>
+    </div>
+    <div class="card" onclick="nav('king.html')">
+      <span class="card-icon">👑</span>
+      <span class="card-name">King</span>
+    </div>
   </div>
 
   <script type="module">
     import { connectWallet } from "./game.js";
 
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    console.log("EthereumProvider:", window.EthereumProvider);
+    // Initialize Telegram
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
 
     const btn = document.getElementById("connectBtn");
-    const walletText = document.getElementById("wallet");
+    const walletText = document.getElementById("walletText");
+    const walletContainer = document.getElementById("walletContainer");
 
-    // ✅ Auto reconnect UI
-    const saved = localStorage.getItem("wallet");
-    if (saved) {
-      walletText.innerText =
-        "Connected: " + saved.slice(0,6) + "..." + saved.slice(-4);
+    function updateUI(address) {
+      if (address) {
+        btn.style.display = "none";
+        walletContainer.classList.add("connected");
+        walletText.innerText = address.slice(0, 6) + "..." + address.slice(-4);
+      } else {
+        btn.style.display = "inline-block";
+        walletContainer.classList.remove("connected");
+        walletText.innerText = "Wallet Disconnected";
+      }
     }
+
+    // Auto-reconnect check
+    const saved = localStorage.getItem("wallet");
+    if (saved) updateUI(saved);
 
     btn.onclick = async () => {
       try {
-        walletText.innerText = "Connecting...";
-
+        btn.disabled = true;
+        btn.innerText = "Connecting...";
+        
         const address = await connectWallet();
 
-        if (!address) {
-          walletText.innerText = "❌ Not connected";
-          return;
+        if (address) {
+          localStorage.setItem("wallet", address);
+          updateUI(address);
+        } else {
+          throw new Error("No address returned");
         }
-
-        localStorage.setItem("wallet", address);
-
-        walletText.innerText =
-          "Connected: " +
-          address.slice(0, 6) +
-          "..." +
-          address.slice(-4);
-
       } catch (err) {
         console.error(err);
-        walletText.innerText = "❌ Failed";
+        alert("Connection failed. Make sure you are on Sepolia.");
+        updateUI(null);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Connect Wallet";
       }
     };
 
-    window.go = (page) => {
+    // Navigation function
+    window.nav = (page) => {
+      // Optional: Check if connected before letting them enter a game
+      if (!localStorage.getItem("wallet")) {
+        alert("Please connect your wallet first!");
+        return;
+      }
       window.location.href = page;
     };
   </script>

@@ -3,6 +3,8 @@
 <head>
   <title>🎲 Casino Dice</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -10,6 +12,7 @@
       background: radial-gradient(circle at top, #1a1a2e, #0f172a);
       color: white;
       text-align: center;
+      transition: background 0.5s ease;
     }
 
     .game-card {
@@ -28,6 +31,7 @@
       margin-top: 10px;
       width: 80%;
       text-align: center;
+      font-size: 16px;
     }
 
     .choices button {
@@ -55,11 +59,26 @@
       background: #00ffae;
       cursor: pointer;
       font-weight: bold;
+      font-size: 16px;
+    }
+
+    button.play:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .dice {
       width: 80px;
       margin: 5px;
+    }
+
+    #result {
+      min-height: 40px;
+      margin-top: 20px;
+    }
+
+    #betInfo {
+      min-height: 50px;
     }
   </style>
 </head>
@@ -86,25 +105,24 @@
     <button id="over" onclick="setChoice(2)">⬆ Over 7 (2x)</button>
   </div>
 
-  <button class="play" onclick="play()">Roll Dice</button>
+  <button id="playBtn" class="play" onclick="play()">Roll Dice</button>
 
   <h3 id="result">Waiting...</h3>
 </div>
 
-<script src="https://unpkg.com/ethers@6.10.0/dist/ethers.umd.min.js"></script>
-
 <script type="module">
-import { connectWallet, playDice, listenDiceResult } from "./game.js";
+import { connectWallet, playDice } from "./game.js";
 
 let choice = 0;
 let rollInterval;
 
-// connect
+// ================= CONNECT WALLET =================
 window.onload = async () => {
   await connectWallet();
+  setChoice(0);
 };
 
-// update bet info (FIXED multiplier logic)
+// ================= UPDATE BET INFO =================
 function updateBetInfo() {
   const val = Number(document.getElementById("bet").value);
 
@@ -121,7 +139,7 @@ function updateBetInfo() {
      ⚠️ Lose: ${val.toFixed(4)} ETH`;
 }
 
-// choice
+// ================= CHOICE =================
 window.setChoice = (c) => {
   choice = c;
 
@@ -133,13 +151,12 @@ window.setChoice = (c) => {
   if (c === 1) document.getElementById("exact").classList.add("selected");
   if (c === 2) document.getElementById("over").classList.add("selected");
 
-  updateBetInfo(); // 🔥 update on selection
+  updateBetInfo();
 };
 
-// bet input
 document.getElementById("bet").addEventListener("input", updateBetInfo);
 
-// 🎲 RANDOM ROLLING ANIMATION (FIXED)
+// ================= ROLLING ANIMATION =================
 function startRolling() {
   const d1 = document.getElementById("dice1");
   const d2 = document.getElementById("dice2");
@@ -157,59 +174,55 @@ function stopRolling() {
   clearInterval(rollInterval);
 }
 
-// listen result
-listenDiceResult((data) => {
-
-  stopRolling(); // 🔥 stop animation
-
-  const d1 = document.getElementById("dice1");
-  const d2 = document.getElementById("dice2");
-
-  d1.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${data.d1}.png`;
-  d2.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${data.d2}.png`;
-
-  const resultBox = document.getElementById("result");
-  const bet = Number(document.getElementById("bet").value);
-  const multiplier = choice === 1 ? 5 : 2;
-
-  if (data.win) {
-    resultBox.innerText =
-      `🎉 YOU WON! ${(bet * multiplier).toFixed(4)} ETH`;
-
-    document.body.style.background =
-      "radial-gradient(circle, #00ffae, #000)";
-  } else {
-    resultBox.innerText =
-      `💀 YOU LOST ${bet.toFixed(4)} ETH`;
-
-    document.body.style.background =
-      "radial-gradient(circle, #ff4d4d, #000)";
-  }
-});
-
-// play
+// ================= PLAY GAME =================
 window.play = async () => {
-
   const bet = Number(document.getElementById("bet").value);
   const resultBox = document.getElementById("result");
+  const playBtn = document.getElementById("playBtn");
 
   if (!bet || bet <= 0) {
     resultBox.innerText = "⚠️ Enter valid bet";
     return;
   }
 
-  startRolling(); // 🔥 start real rolling
-
+  playBtn.disabled = true;
   resultBox.innerText = "🎲 Rolling...";
+  startRolling();
 
   try {
-    await playDice(choice, bet);
+    const data = await playDice(choice, bet);
+
+    stopRolling();
+
+    const d1 = document.getElementById("dice1");
+    const d2 = document.getElementById("dice2");
+
+    d1.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${data.d1}.png`;
+    d2.src = `https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/dice${data.d2}.png`;
+
+    let multiplier = choice === 1 ? 5 : 2;
+
+    if (data.win) {
+      resultBox.innerText =
+        `🎉 YOU WON! ${ (bet * multiplier).toFixed(4) } ETH`;
+
+      document.body.style.background =
+        "radial-gradient(circle, #00ffae, #000)";
+    } else {
+      resultBox.innerText =
+        `💀 YOU LOST ${bet.toFixed(4)} ETH`;
+
+      document.body.style.background =
+        "radial-gradient(circle, #ff4d4d, #000)";
+    }
+
   } catch (err) {
     console.error(err);
-
     stopRolling();
     resultBox.innerText = "❌ Failed";
   }
+
+  playBtn.disabled = false;
 };
 </script>
 

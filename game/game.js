@@ -7,10 +7,18 @@ let ethersProvider;
 // ================= CONNECT WALLET =================
 export async function connectWallet() {
   try {
-    if (signer) return await signer.getAddress();
+    // Already connected
+    if (signer) {
+      return await signer.getAddress();
+    }
 
     const isTelegram = window.Telegram?.WebApp;
     console.log("Is Telegram:", isTelegram);
+
+    // Ensure ethers is loaded
+    if (!window.ethers) {
+      throw new Error("Ethers library not loaded");
+    }
 
     // ================= BROWSER WALLET =================
     if (window.ethereum && !isTelegram) {
@@ -18,7 +26,7 @@ export async function connectWallet() {
 
       await ethersProvider.send("eth_requestAccounts", []);
 
-      // ✅ Force Sepolia
+      // Switch to Sepolia
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: "0xaa36a7" }]
@@ -35,7 +43,7 @@ export async function connectWallet() {
       return address;
     }
 
-    // ================= WALLETCONNECT (TELEGRAM) =================
+    // ================= TELEGRAM WALLETCONNECT =================
     const EthereumProvider = window.EthereumProvider;
 
     if (!EthereumProvider) {
@@ -45,7 +53,7 @@ export async function connectWallet() {
 
     provider = await EthereumProvider.init({
       projectId: "2cdf3feb2a94aeea53e56d863bb42eb4",
-      chains: [11155111], // Sepolia
+      chains: [11155111],
       showQrModal: true,
       qrModalOptions: {
         themeMode: "dark"
@@ -54,7 +62,19 @@ export async function connectWallet() {
 
     await provider.enable();
 
-    // ✅ Force Sepolia
+    // Get wallet accounts FIRST
+    const accounts = await provider.request({
+      method: "eth_accounts"
+    });
+
+    console.log("Wallet accounts:", accounts);
+
+    if (!accounts || accounts.length === 0) {
+      alert("No wallet account connected");
+      return null;
+    }
+
+    // Force Sepolia
     await provider.request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: "0xaa36a7" }]
@@ -63,7 +83,7 @@ export async function connectWallet() {
     ethersProvider = new window.ethers.BrowserProvider(provider);
     signer = await ethersProvider.getSigner();
 
-    const address = await signer.getAddress();
+    const address = accounts[0];
     const balance = await ethersProvider.getBalance(address);
 
     console.log("✅ WalletConnect used (Telegram):", address);
@@ -73,7 +93,7 @@ export async function connectWallet() {
 
   } catch (err) {
     console.error("❌ Wallet error:", err);
-    alert("Wallet connection failed");
+    alert(err.message || "Wallet connection failed");
     return null;
   }
 }
@@ -104,23 +124,24 @@ async function checkBalance(bet) {
   }
 }
 
-// ================= COINFLIP ================= 
-const coinflipABI = [ 
-  "function placeBet(bool guess, bytes32 commitHash) payable", 
-  "function reveal(uint256 betId, string memory secret)", 
-  "event BetPlaced(uint256 betId, address player, uint amount, bool guess)", 
-  "event BetRevealed(uint256 betId, bool win, uint payout)" 
-]; 
-export async function playCoinFlip(choice, bet) { 
-  const signer = await getSigner(); 
+// ================= COINFLIP =================
+const coinflipABI = [
+  "function placeBet(bool guess, bytes32 commitHash) payable",
+  "function reveal(uint256 betId, string memory secret)",
+  "event BetPlaced(uint256 betId, address player, uint amount, bool guess)",
+  "event BetRevealed(uint256 betId, bool win, uint payout)"
+];
 
-  const contract = new window.ethers.Contract( 
-     CONTRACTS.coinflip, 
-     coinflipABI, 
-     signer 
-    ); 
+export async function playCoinFlip(choice, bet) {
+  const signer = await getSigner();
 
-    const secret = Math.random().toString(36).substring(2);
+  const contract = new window.ethers.Contract(
+    CONTRACTS.coinflip,
+    coinflipABI,
+    signer
+  );
+
+  const secret = Math.random().toString(36).substring(2);
 
   const hash = window.ethers.keccak256(
     window.ethers.toUtf8Bytes(secret)
@@ -153,7 +174,6 @@ export async function playCoinFlip(choice, bet) {
   for (let log of receipt2.logs) {
     try {
       const parsed = contract.interface.parseLog(log);
-
       if (parsed.name === "BetRevealed") {
         return {
           betId: betId.toString(),
@@ -199,7 +219,6 @@ export async function playDice(choice, bet) {
 
     const receipt = await tx.wait();
 
-    // Parse DicePlayed event directly from receipt
     for (let log of receipt.logs) {
       try {
         const parsed = contract.interface.parseLog(log);
@@ -221,14 +240,7 @@ export async function playDice(choice, bet) {
 
   } catch (err) {
     console.error("❌ Dice error:", err);
-
-    alert(
-      err.reason ||
-      err.shortMessage ||
-      err.message ||
-      "Transaction failed"
-    );
-
+    alert(err.reason || err.shortMessage || err.message || "Transaction failed");
     throw err;
   }
 }

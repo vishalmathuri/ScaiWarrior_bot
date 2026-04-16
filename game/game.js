@@ -12,29 +12,50 @@ export async function connectWallet() {
       return await signer.getAddress();
     }
 
-    const isTelegram = window.Telegram?.WebApp;
-    console.log("Is Telegram:", isTelegram);
-
-    // Ensure ethers is loaded
+    // Ensure ethers loaded
     if (!window.ethers) {
       throw new Error("Ethers library not loaded");
     }
 
-    // ================= BROWSER WALLET =================
+    // Detect REAL Telegram environment only
+    const isTelegram =
+      window.Telegram &&
+      window.Telegram.WebApp &&
+      window.Telegram.WebApp.initData &&
+      window.Telegram.WebApp.initData.length > 0;
+
+    console.log("Telegram detected:", isTelegram);
+    console.log("window.ethereum:", window.ethereum);
+    console.log("window.okxwallet:", window.okxwallet);
+
+    // ================= BROWSER WALLET (OKX / MetaMask) =================
     if (window.ethereum && !isTelegram) {
+      console.log("Using Browser Wallet");
+
       ethersProvider = new window.ethers.BrowserProvider(window.ethereum);
 
-      await ethersProvider.send("eth_requestAccounts", []);
+      await window.ethereum.request({
+        method: "eth_requestAccounts"
+      });
 
       // Switch to Sepolia
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }]
-      });
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0xaa36a7" }]
+        });
+      } catch (switchError) {
+        console.log("Chain switch skipped:", switchError.message);
+      }
 
       signer = await ethersProvider.getSigner();
 
       const address = await signer.getAddress();
+
+      if (!address) {
+        throw new Error("No address returned from wallet");
+      }
+
       const balance = await ethersProvider.getBalance(address);
 
       console.log("✅ Browser wallet connected:", address);
@@ -44,11 +65,12 @@ export async function connectWallet() {
     }
 
     // ================= TELEGRAM WALLETCONNECT =================
+    console.log("Using WalletConnect for Telegram");
+
     const EthereumProvider = window.EthereumProvider;
 
     if (!EthereumProvider) {
-      alert("WalletConnect not loaded");
-      return null;
+      throw new Error("WalletConnect not loaded");
     }
 
     provider = await EthereumProvider.init({
@@ -62,23 +84,13 @@ export async function connectWallet() {
 
     await provider.enable();
 
-    // Get wallet accounts FIRST
-    const accounts = await provider.request({
-      method: "eth_accounts"
-    });
+    const accounts = provider.accounts;
 
-    console.log("Wallet accounts:", accounts);
+    console.log("WalletConnect accounts:", accounts);
 
     if (!accounts || accounts.length === 0) {
-      alert("No wallet account connected");
-      return null;
+      throw new Error("No address returned");
     }
-
-    // Force Sepolia
-    await provider.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0xaa36a7" }]
-    });
 
     ethersProvider = new window.ethers.BrowserProvider(provider);
     signer = await ethersProvider.getSigner();
@@ -86,7 +98,7 @@ export async function connectWallet() {
     const address = accounts[0];
     const balance = await ethersProvider.getBalance(address);
 
-    console.log("✅ WalletConnect used (Telegram):", address);
+    console.log("✅ WalletConnect connected:", address);
     console.log("💰 Balance:", window.ethers.formatEther(balance));
 
     return address;
@@ -109,19 +121,6 @@ async function getSigner() {
   }
 
   return signer;
-}
-
-// ================= BALANCE CHECK =================
-async function checkBalance(bet) {
-  const address = await signer.getAddress();
-  const balance = await ethersProvider.getBalance(address);
-
-  const required = window.ethers.parseEther(bet.toString());
-
-  if (balance < required) {
-    alert("❌ Not enough ETH\nBalance: " + window.ethers.formatEther(balance));
-    throw new Error("Insufficient funds");
-  }
 }
 
 // ================= COINFLIP =================

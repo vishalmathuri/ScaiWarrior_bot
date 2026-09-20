@@ -1,31 +1,30 @@
-require("dotenv").config()
-const TelegramBot = require("node-telegram-bot-api")
+require("dotenv").config();
+const { Markup, Telegraf } = require("telegraf");
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true })
+const token = process.env.BOT_TOKEN;
+const gameUrl = process.env.GAME_URL || "https://scai-warrior.vercel.app/";
 
-// 🚀 Start Command
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    "🎮 Welcome to Scai Web3 Games!\nChoose a game:",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "🎮 Open Games",
-              web_app: {
-                url: "https://scai-warrior.vercel.app/"
-              }
-            }
-          ]
-        ]
-      }
-    }
+if (!token) {
+  throw new Error("BOT_TOKEN is required");
+}
+
+const bot = new Telegraf(token);
+
+bot.start((ctx) =>
+  ctx.reply(
+    "🎮 Welcome to Scai Warrior!\nChoose a game and play on Sepolia testnet.",
+    Markup.inlineKeyboard([Markup.button.webApp("🎮 Open Games", gameUrl)])
   )
-})
+);
 
-// ⚠️ Handle polling errors (IMPORTANT)
-bot.on("polling_error", (error) => {
-  console.error("Polling error:", error.code, error.message)
-})
+bot.catch((error, ctx) => {
+  console.error(`Bot error for update ${ctx.update.update_id}:`, error);
+});
+
+bot.launch().then(() => {
+  console.log("Scai Warrior bot is running");
+});
+
+const stop = (signal) => bot.stop(signal);
+process.once("SIGINT", () => stop("SIGINT"));
+process.once("SIGTERM", () => stop("SIGTERM"));

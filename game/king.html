@@ -3,8 +3,9 @@
 <head>
   <title>👑 King Game</title>
 
-  <!-- ✅ ethers v6 -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.js"></script>
 
   <style>
     body {
@@ -109,16 +110,15 @@
 <div id="result"></div>
 
 <script type="module">
-import { playKing } from "./game.js";
+import { connectWallet, playKing } from "./game.js";
 
 let selectedIndex = null;
 let isPlaying = false;
 
 // ================= WALLET =================
 window.connectWallet = async function () {
-  if (!window.ethereum) return alert("Install MetaMask");
-  await window.ethereum.request({ method: "eth_requestAccounts" });
-  alert("✅ Wallet Connected");
+  const address = await connectWallet();
+  if (address) alert(`✅ Connected: ${address.slice(0, 6)}...${address.slice(-4)}`);
 };
 
 // ================= RENDER =================

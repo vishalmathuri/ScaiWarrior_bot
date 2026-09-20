@@ -4,6 +4,36 @@ let provider;
 let signer;
 let ethersProvider;
 
+const SEPOLIA_CHAIN_ID = 11155111;
+const SEPOLIA_CHAIN_HEX = "0xaa36a7";
+const MIN_BET = 0.05;
+const MAX_BET = 1;
+
+function getWalletConnectProvider() {
+  return window["@walletconnect/ethereum-provider"]?.EthereumProvider;
+}
+
+function validateBet(bet) {
+  const value = Number(bet);
+
+  if (!Number.isFinite(value) || value < MIN_BET || value > MAX_BET) {
+    throw new Error(`Bet must be between ${MIN_BET} and ${MAX_BET} ETH`);
+  }
+
+  return value;
+}
+
+async function waitForNextBlock(blockNumber, timeoutMs = 90000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if ((await ethersProvider.getBlockNumber()) > blockNumber) return;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+
+  throw new Error("Timed out waiting for the reveal block");
+}
+
 // ================= CONNECT WALLET =================
 export async function connectWallet() {
   try {
@@ -42,10 +72,10 @@ export async function connectWallet() {
       try {
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0xaa36a7" }]
+          params: [{ chainId: SEPOLIA_CHAIN_HEX }]
         });
       } catch (switchError) {
-        console.log("Chain switch skipped:", switchError.message);
+        throw new Error(`Switch your wallet to Sepolia: ${switchError.message}`);
       }
 
       signer = await ethersProvider.getSigner();
@@ -67,7 +97,7 @@ export async function connectWallet() {
     // ================= TELEGRAM WALLETCONNECT =================
     console.log("Using WalletConnect for Telegram");
 
-    const EthereumProvider = window.EthereumProvider;
+    const EthereumProvider = getWalletConnectProvider();
 
     if (!EthereumProvider) {
       throw new Error("WalletConnect not loaded");
@@ -75,8 +105,15 @@ export async function connectWallet() {
 
     provider = await EthereumProvider.init({
       projectId: "2cdf3feb2a94aeea53e56d863bb42eb4",
-      chains: [11155111],
+      chains: [SEPOLIA_CHAIN_ID],
+      optionalChains: [SEPOLIA_CHAIN_ID],
       showQrModal: true,
+      metadata: {
+        name: "Scai Warrior",
+        description: "Telegram Web3 games on Sepolia",
+        url: window.location.origin,
+        icons: [`${window.location.origin}/favicon.ico`]
+      },
       qrModalOptions: {
         themeMode: "dark"
       }
@@ -133,6 +170,7 @@ const coinflipABI = [
 
 export async function playCoinFlip(choice, bet) {
   const signer = await getSigner();
+  const cleanBet = validateBet(bet);
 
   const contract = new window.ethers.Contract(
     CONTRACTS.coinflip,
@@ -147,7 +185,7 @@ export async function playCoinFlip(choice, bet) {
   );
 
   const tx = await contract.placeBet(choice, hash, {
-    value: window.ethers.parseEther(bet.toString())
+    value: window.ethers.parseEther(cleanBet.toString())
   });
 
   const receipt = await tx.wait();
@@ -165,7 +203,7 @@ export async function playCoinFlip(choice, bet) {
 
   if (betId === undefined) throw new Error("Bet ID not found");
 
-  await new Promise((r) => setTimeout(r, 2500));
+  await waitForNextBlock(receipt.blockNumber);
 
   const tx2 = await contract.reveal(betId, secret);
   const receipt2 = await tx2.wait();
@@ -194,14 +232,10 @@ const diceABI = [
 
 export async function playDice(choice, bet) {
   const signer = await getSigner();
+  const cleanBet = validateBet(bet);
 
   if (choice === undefined || choice === null) {
     alert("Please select a choice");
-    return;
-  }
-
-  if (!bet || bet <= 0) {
-    alert("Enter valid bet");
     return;
   }
 
@@ -213,7 +247,7 @@ export async function playDice(choice, bet) {
 
   try {
     const tx = await contract.play(choice, {
-      value: window.ethers.parseEther(bet.toString())
+      value: window.ethers.parseEther(cleanBet.toString())
     });
 
     const receipt = await tx.wait();
@@ -252,6 +286,7 @@ const wheelABI = [
 
 export async function spinWheel(bet) {
   const signer = await getSigner();
+  const cleanBet = validateBet(bet);
 
   const contract = new window.ethers.Contract(
     CONTRACTS.wheel,
@@ -261,7 +296,7 @@ export async function spinWheel(bet) {
 
   try {
     const tx = await contract.spin({
-      value: window.ethers.parseEther(bet.toString())
+      value: window.ethers.parseEther(cleanBet.toString())
     });
 
     const receipt = await tx.wait();
@@ -307,16 +342,11 @@ export async function playKing(choice, bet) {
 
   try {
     const cleanChoice = parseInt(choice);
-    const cleanBet = parseFloat(bet);
+    const cleanBet = validateBet(bet);
 
     if (cleanChoice < 0 || cleanChoice > 2) {
       alert("❌ Invalid card selected");
       throw new Error("Invalid index");
-    }
-
-    if (!cleanBet || cleanBet <= 0) {
-      alert("❌ Enter valid bet");
-      throw new Error("Invalid bet");
     }
 
     const tx = await contract.play(cleanChoice, {

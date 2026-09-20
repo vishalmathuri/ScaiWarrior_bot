@@ -2,121 +2,113 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("CoinFlip", function () {
-  let contract, player, attacker;
+  let vault, coinFlip, owner, player, attacker;
+
+  const commit = (secret) => ethers.keccak256(ethers.toUtf8Bytes(secret));
+
+  async function placeBet(secret = "secret", guess = true) {
+    return coinFlip.connect(player).placeBet(guess, commit(secret), {
+      value: ethers.parseEther("0.1"),
+    });
+  }
+
+  async function reachRevealBlock() {
+    await ethers.provider.send("evm_mine");
+  }
 
   beforeEach(async () => {
-    [_, player, attacker] = await ethers.getSigners();
+    [owner, player, attacker] = await ethers.getSigners();
 
-    const CF = await ethers.getContractFactory("CoinFlipCommitReveal");
-    contract = await CF.deploy();
+    const Vault = await ethers.getContractFactory("Vault");
+    vault = await Vault.deploy();
+    await vault.waitForDeployment();
 
-    // ✅ FIX 1
-    await contract.waitForDeployment();
+    const CoinFlip = await ethers.getContractFactory("CoinFlip");
+    coinFlip = await CoinFlip.deploy(await vault.getAddress());
+    await coinFlip.waitForDeployment();
 
-    // ✅ FIX 2
-    const contractAddress = await contract.getAddress();
-
-    await ethers.provider.send("hardhat_setBalance", [
-      contractAddress,
-      "0x1000000000000000000",
-    ]);
+    await vault.authorizeGame(await coinFlip.getAddress());
+    await owner.sendTransaction({
+      to: await vault.getAddress(),
+      value: ethers.parseEther("10"),
+    });
   });
 
-  it("should fail if bet exceeds maxBet", async () => {
-    const secret = "abc";
-
-    // ✅ FIX 3 (ethers v6)
-    const hash = ethers.keccak256(
-      ethers.toUtf8Bytes(secret)
-    );
+  it("rejects bets outside the configured limits", async () => {
+    await expect(
+      coinFlip.connect(player).placeBet(true, commit("low"), {
+        value: ethers.parseEther("0.01"),
+      })
+    ).to.be.revertedWith("Invalid bet");
 
     await expect(
-      contract.connect(player).placeBet(true, hash, {
-        // ✅ FIX 4
+      coinFlip.connect(player).placeBet(true, commit("high"), {
         value: ethers.parseEther("2"),
       })
     ).to.be.revertedWith("Invalid bet");
   });
 
-  it("should not allow other user to reveal", async () => {
-    const secret = "abc";
-
-    const hash = ethers.keccak256(
-      ethers.toUtf8Bytes(secret)
-    );
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
+  it("does not allow another account to reveal", async () => {
+    await placeBet("owner-secret");
     await expect(
-      contract.connect(attacker).reveal(0, secret)
+      coinFlip.connect(attacker).reveal(0, "owner-secret")
     ).to.be.revertedWith("Not your bet");
   });
 
-  it("should not allow reveal twice", async () => {
-    const secret = "abc";
-
-    const hash = ethers.keccak256(
-      ethers.toUtf8Bytes(secret)
+  it("waits for future-block entropy", async () => {
+    await placeBet();
+    await expect(coinFlip.connect(player).reveal(0, "secret")).to.be.revertedWith(
+      "Reveal too early"
     );
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
-    await contract.connect(player).reveal(0, secret);
-
-    await expect(
-      contract.connect(player).reveal(0, secret)
-    ).to.be.revertedWith("Already revealed");
   });
 
-  it("should not allow timeout claim twice", async () => {
-    const secret = "abc";
-
-    const hash = ethers.keccak256(
-      ethers.toUtf8Bytes(secret)
+  it("resolves a committed bet once the reveal block is available", async () => {
+    await placeBet();
+    await reachRevealBlock();
+    await expect(coinFlip.connect(player).reveal(0, "secret")).to.emit(
+      coinFlip,
+      "BetRevealed"
     );
+  });
 
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
+  it("rejects an invalid secret", async () => {
+    await placeBet("correct");
+    await reachRevealBlock();
+    await expect(coinFlip.connect(player).reveal(0, "wrong")).to.be.revertedWith(
+      "Invalid secret"
+    );
+  });
 
+  it("does not allow a second reveal", async () => {
+    await placeBet();
+    await reachRevealBlock();
+    await coinFlip.connect(player).reveal(0, "secret");
+    await expect(coinFlip.connect(player).reveal(0, "secret")).to.be.revertedWith(
+      "Already revealed"
+    );
+  });
+
+  it("expires an unrevealed bet without giving a free refund option", async () => {
+    await placeBet();
     await ethers.provider.send("evm_increaseTime", [600]);
     await ethers.provider.send("evm_mine");
 
-    await contract.connect(player).claimTimeout(0);
+    await expect(coinFlip.connect(player).claimTimeout(0))
+      .to.emit(coinFlip, "BetExpired")
+      .withArgs(0, player.address);
 
-    await expect(
-      contract.connect(player).claimTimeout(0)
-    ).to.be.revertedWith("Already resolved");
+    const bet = await coinFlip.bets(0);
+    expect(bet.revealed).to.equal(true);
   });
 
-  it("should handle rapid bets", async () => {
-    const secret = "abc";
+  it("does not allow an expired bet to be claimed twice", async () => {
+    await placeBet();
+    await ethers.provider.send("evm_increaseTime", [600]);
+    await ethers.provider.send("evm_mine");
+    await coinFlip.connect(player).claimTimeout(0);
 
-    const hash = ethers.keccak256(
-      ethers.toUtf8Bytes(secret)
+    await expect(coinFlip.connect(player).claimTimeout(0)).to.be.revertedWith(
+      "Already resolved"
     );
-
-    for (let i = 0; i < 5; i++) {
-      await contract.connect(player).placeBet(true, hash, {
-        value: ethers.parseEther("0.1"),
-      });
-    }
   });
-
-  it("should fail with wrong hash reveal", async () => {
-  const secret = "abc";
-  const hash = ethers.keccak256(ethers.toUtf8Bytes(secret));
-
-  await contract.connect(player).placeBet(true, hash, {
-    value: ethers.parseEther("0.1"),
-  });
-
-  await expect(
-    contract.connect(player).reveal(0, "wrong")
-  ).to.be.reverted;
-});
 });

@@ -46,8 +46,14 @@ describe("DiceGame", function () {
   });
 
   it("should fail if bet is zero", async () => {
-  await expect(
-    dice.connect(player).play(0, { value: 0 })
-  ).to.be.revertedWith("Invalid bet");
-});
+    await expect(
+      dice.connect(player).play(0, { value: 0 })
+    ).to.be.revertedWith("Invalid bet");
+  });
+
+  it("should reject bets above the maximum", async () => {
+    await expect(
+      dice.connect(player).play(0, { value: ethers.parseEther("1.01") })
+    ).to.be.revertedWith("Invalid bet");
+  });
 });

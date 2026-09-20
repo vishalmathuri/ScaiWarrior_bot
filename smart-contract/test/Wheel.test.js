@@ -39,6 +39,12 @@ describe("WheelGame", function () {
     ).to.be.revertedWith("Invalid bet"); // ✅ FIX
   });
 
+  it("should reject bets above the maximum", async () => {
+    await expect(
+      wheel.connect(player).spin({ value: ethers.parseEther("1.01") })
+    ).to.be.revertedWith("Invalid bet");
+  });
+
   it("should allow multiple spins", async () => {
     for (let i = 0; i < 5; i++) {
       await wheel.connect(player).spin({

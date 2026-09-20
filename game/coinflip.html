@@ -1,230 +1,85 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>💰 Coin Flip</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080b18">
+  <title>Coin Flip | Scai Warrior</title>
+  <link rel="stylesheet" href="./game-theme.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.js"></script>
   <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at top, #1a1a2e, #0f172a);
-      color: white;
-      text-align: center;
-    }
-
-    .game-card {
-      max-width: 400px;
-      margin: 40px auto;
-      padding: 20px;
-      background: #111827;
-      border-radius: 20px;
-      box-shadow: 0 0 25px rgba(0,255,174,0.2);
-    }
-
-    .coin {
-      width: 140px;
-      margin: 20px auto;
-      display: block;
-      transform-style: preserve-3d;
-    }
-
-    .flip {
-      animation: flipAnim 0.7s ease-in-out infinite;
-    }
-
-    /* 🔥 TOP-BOTTOM FLIP */
-    @keyframes flipAnim {
-      0% { transform: rotateX(0deg) scale(1); }
-      50% { transform: rotateX(540deg) scale(1.1); }
-      100% { transform: rotateX(1080deg) scale(1); }
-    }
-
-    .choices img {
-      width: 100px;
-      cursor: pointer;
-      margin: 10px;
-      border-radius: 50%;
-      transition: 0.2s;
-    }
-
-    .choices img:hover {
-      transform: scale(1.1);
-    }
-
-    .selected {
-      border: 3px solid #00ffae;
-      box-shadow: 0 0 15px #00ffae;
-    }
-
-    input {
-      padding: 10px;
-      border-radius: 10px;
-      border: none;
-      margin-top: 10px;
-      width: 80%;
-      text-align: center;
-    }
-
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 10px;
-      background: #00ffae;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .play-again {
-      background: #1f2937;
-      color: #00ffae;
-      border: 1px solid #00ffae;
-    }
+    .coin-stage { overflow: hidden; }
+    .coin-orbit { position: relative; display: grid; width: min(280px,72vw); aspect-ratio: 1; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: radial-gradient(circle,rgba(46,230,166,.12),rgba(99,102,241,.05) 55%,transparent 56%); }
+    .coin-orbit::before,.coin-orbit::after { position:absolute; border:1px solid rgba(148,163,184,.12); border-radius:50%; content:""; }
+    .coin-orbit::before{inset:12%}.coin-orbit::after{inset:26%}
+    .coin { position: relative; z-index: 2; width: 145px; filter: drop-shadow(0 22px 26px rgba(0,0,0,.5)); transform-style: preserve-3d; }
+    .coin.flipping { animation: coin-flip .62s linear infinite; }
+    @keyframes coin-flip { 0%{transform:translateY(0) rotateX(0)} 50%{transform:translateY(-32px) rotateX(540deg) scale(1.06)} 100%{transform:translateY(0) rotateX(1080deg)} }
+    .choice-button img { width: 38px; height: 38px; margin-right: 7px; vertical-align: middle; }
+    .streak { margin: 12px 0 0; color: var(--gold); font-size: 13px; font-weight: 800; text-align:center; }
   </style>
 </head>
-
 <body>
+  <main class="game-shell">
+    <header class="game-topbar"><a class="back-link" href="./index.html">← Game lobby</a><div class="brand">SCAI<span>WARRIOR</span></div><div class="network-chip">Sepolia testnet</div></header>
+    <section class="game-card">
+      <div class="game-heading"><div class="eyebrow">Commit-reveal game</div><h1>Coin Flip</h1><p>Choose a side. Your selection is committed first and revealed with future-block entropy.</p></div>
+      <div class="game-grid">
+        <div class="visual-panel coin-stage"><div class="coin-orbit"><img id="coin" class="coin" src="./assets/heads.png" alt="Coin"></div></div>
+        <aside class="control-panel">
+          <h2>Choose your side</h2>
+          <div class="choice-grid two">
+            <button id="heads" class="choice-button" data-choice="0"><img src="./assets/heads.png" alt="">Heads</button>
+            <button id="tails" class="choice-button" data-choice="1"><img src="./assets/tails.png" alt="">Tails</button>
+          </div>
+          <label class="field-label" for="bet">Stake amount</label>
+          <div class="bet-wrap"><input id="bet" type="number" min="0.05" max="1" step="0.01" placeholder="0.05"><span>ETH</span></div>
+          <div class="presets"><button class="preset" data-bet="0.05">0.05</button><button class="preset" data-bet="0.1">0.10</button><button class="preset" data-bet="0.25">0.25</button><button class="preset" data-bet="0.5">0.50</button></div>
+          <div id="betInfo" class="bet-summary">Pick Heads or Tails and choose a stake.</div>
+          <button id="flipBtn" class="primary-button">Flip the coin</button>
+          <div id="result" class="status-box">Ready when you are.</div>
+          <div id="streak" class="streak">🔥 Win streak: 0</div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    import { connectWallet, playCoinFlip } from "./game.js";
+    const coin = document.getElementById("coin");
+    const betInput = document.getElementById("bet");
+    const betInfo = document.getElementById("betInfo");
+    const resultBox = document.getElementById("result");
+    const flipBtn = document.getElementById("flipBtn");
+    let choice = null;
+    let streak = 0;
+    let isPlaying = false;
 
-<div class="game-card">
-  <h2>💰 Coin Flip</h2>
+    window.Telegram?.WebApp?.ready(); window.Telegram?.WebApp?.expand(); connectWallet();
+    const setStatus=(message,tone="")=>{resultBox.className=`status-box ${tone}`.trim();resultBox.textContent=message;};
+    function updateBet(){const bet=Number(betInput.value);betInfo.innerHTML=bet?`Stake <strong>${bet.toFixed(4)} ETH</strong><br>Winning payout: ${(bet*1.8).toFixed(4)} ETH`:"Pick Heads or Tails and choose a stake.";}
+    document.querySelectorAll(".preset").forEach(button=>button.addEventListener("click",()=>{betInput.value=button.dataset.bet;updateBet();}));
+    betInput.addEventListener("input",updateBet);
+    document.querySelectorAll("[data-choice]").forEach(button=>button.addEventListener("click",()=>{choice=Number(button.dataset.choice);document.querySelectorAll("[data-choice]").forEach(item=>item.classList.remove("selected"));button.classList.add("selected");}));
 
-  <img id="coin" class="coin"
-    src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/heads.png">
-
-  <div class="choices">
-    <img id="heads"
-      src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/heads.png"
-      onclick="selectChoice(0)">
-    <img id="tails"
-      src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/tails.png"
-      onclick="selectChoice(1)">
-  </div>
-
-  <input id="bet" type="number" step="0.01" placeholder="Enter ETH">
-
-  <p id="betInfo"></p>
-  <p id="streak">🔥 Streak: 0</p>
-
-  <button onclick="flip()">Flip</button>
-  <button class="play-again" onclick="flip()">⚡ Flip Again</button>
-
-  <h3 id="result">Waiting...</h3>
-</div>
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.js"></script>
-
-<script type="module">
-import { connectWallet, playCoinFlip } from "./game.js";
-
-let choice = null;
-let lastChoice = null;
-let isPlaying = false;
-let streak = 0;
-
-window.onload = async () => {
-  await connectWallet();
-};
-
-// choice
-window.selectChoice = (val) => {
-  choice = val;
-
-  document.getElementById("heads").classList.remove("selected");
-  document.getElementById("tails").classList.remove("selected");
-
-  if (val === 0) {
-    document.getElementById("heads").classList.add("selected");
-  } else {
-    document.getElementById("tails").classList.add("selected");
-  }
-};
-
-// 🔥 BET INFO WITH LOSS
-document.getElementById("bet").addEventListener("input", (e) => {
-  const val = Number(e.target.value);
-
-  if (!val || val <= 0) {
-    document.getElementById("betInfo").innerHTML = "";
-    return;
-  }
-
-  document.getElementById("betInfo").innerHTML =
-    `💰 Bet: ${val.toFixed(4)} ETH <br>
-     🎯 Win: <b>${(val * 1.8).toFixed(4)} ETH</b><br>
-     ⚠️ Lose: ${val.toFixed(4)} ETH`;
-});
-
-// flip
-window.flip = async () => {
-
-  if (isPlaying) return;
-
-  const bet = Number(document.getElementById("bet").value);
-  const resultBox = document.getElementById("result");
-  const coin = document.getElementById("coin");
-
-  if (choice === null) {
-    resultBox.innerText = "⚠️ Select Heads or Tails";
-    return;
-  }
-
-  if (!bet || bet <= 0) {
-    resultBox.innerText = "⚠️ Enter valid bet";
-    return;
-  }
-
-  try {
-    isPlaying = true;
-    lastChoice = choice;
-
-    resultBox.innerText = "🎡 Flipping...";
-
-    coin.style.animationDuration =
-      (Math.random() * 0.5 + 0.5) + "s";
-
-    coin.classList.add("flip");
-
-    const res = await playCoinFlip(choice, bet);
-
-    coin.classList.remove("flip");
-
-    let resultSide = res.win
-      ? lastChoice
-      : (lastChoice === 0 ? 1 : 0);
-
-    coin.src = resultSide === 0
-      ? "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/heads.png"
-      : "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/tails.png";
-
-    if (res.win) {
-      streak++;
-      resultBox.innerText = `🎉 Won ${res.amount} ETH`;
-      document.body.style.background =
-        "radial-gradient(circle, #00ffae, #000)";
-    } else {
-      streak = 0;
-      resultBox.innerText = `😬 Lost ${bet} ETH`;
-      document.body.style.background =
-        "radial-gradient(circle, #ff4d4d, #000)";
-    }
-
-    document.getElementById("streak").innerText =
-      `🔥 Streak: ${streak}`;
-
-    isPlaying = false;
-
-  } catch (err) {
-    console.error(err);
-
-    coin.classList.remove("flip");
-    isPlaying = false;
-
-    resultBox.innerText = "❌ Error (check vault / limits)";
-  }
-};
-</script>
-
+    flipBtn.addEventListener("click",async()=>{
+      if(isPlaying)return;
+      const bet=Number(betInput.value);
+      if(choice===null){setStatus("Choose Heads or Tails first.","danger");return;}
+      if(bet<.05||bet>1){setStatus("Enter a bet between 0.05 and 1 ETH.","danger");return;}
+      isPlaying=true;flipBtn.disabled=true;betInput.disabled=true;coin.classList.add("flipping");setStatus("Commit the bet in your wallet. Waiting for the reveal block…");
+      try{
+        const outcome=await playCoinFlip(choice,bet);
+        coin.classList.remove("flipping");
+        const side=outcome.win?choice:(choice===0?1:0);
+        coin.src=side===0?"./assets/heads.png":"./assets/tails.png";
+        if(outcome.win){streak++;setStatus(`You won ${outcome.amount} ETH!`,"success");}
+        else{streak=0;setStatus(`The other side landed. You lost ${bet.toFixed(4)} ETH.`,"danger");}
+        document.getElementById("streak").textContent=`🔥 Win streak: ${streak}`;
+      }catch(error){console.error(error);coin.classList.remove("flipping");setStatus(error.shortMessage||error.message||"Transaction was not completed.","danger");}
+      finally{isPlaying=false;flipBtn.disabled=false;betInput.disabled=false;}
+    });
+  </script>
 </body>
 </html>

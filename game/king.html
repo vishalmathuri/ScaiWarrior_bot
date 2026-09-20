@@ -1,238 +1,248 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>👑 King Game</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080b18">
+  <title>Find the King | Scai Warrior</title>
+  <link rel="stylesheet" href="./game-theme.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/index.umd.js"></script>
-
   <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at top, #1a1a2e, #0f172a);
-      color: white;
-      text-align: center;
-    }
-
-    h1 { margin-top: 20px; }
-
-    button {
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: none;
-      background: gold;
-      cursor: pointer;
-      margin: 5px;
-      font-weight: bold;
-    }
-
-    input {
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      width: 120px;
-      text-align: center;
-    }
-
-    .cards {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      margin-top: 30px;
-    }
-
-    .card3d {
-      width: 100px;
-      height: 140px;
-      perspective: 1000px;
-      cursor: pointer;
-    }
-
-    .inner {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      transform-style: preserve-3d;
-      transition: transform 0.6s;
-    }
-
-    .card3d.flip .inner {
-      transform: rotateY(180deg);
-    }
-
-    .front, .back {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      backface-visibility: hidden;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-
-    .front { transform: rotateY(180deg); }
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .selected {
-      outline: 3px solid gold;
-      transform: scale(1.1);
-    }
-
-    .win { box-shadow: 0 0 20px lime; }
-    .lose { box-shadow: 0 0 20px red; }
-
-    #result {
-      margin-top: 30px;
-      font-size: 20px;
-      font-weight: bold;
-    }
+    .king-stage { align-content: center; overflow: hidden; }
+    .cards { display: flex; align-items: center; justify-content: center; gap: clamp(10px,3vw,24px); width: 100%; min-height: 260px; perspective: 1200px; }
+    .playing-card { position: relative; width: clamp(88px,16vw,132px); aspect-ratio: 5 / 7; border: 0; padding: 0; background: transparent; perspective: 1000px; transition: filter 180ms ease, transform 220ms ease; }
+    .playing-card.can-pick:hover { transform: translateY(-10px); }
+    .playing-card.selected { transform: translateY(-13px) scale(1.04); filter: drop-shadow(0 0 14px rgba(46,230,166,.78)); }
+    .playing-card.win { filter: drop-shadow(0 0 18px rgba(46,230,166,.9)); }
+    .playing-card.lose { filter: drop-shadow(0 0 18px rgba(255,102,125,.82)); }
+    .card-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .68s cubic-bezier(.2,.72,.2,1); }
+    .playing-card.face-down .card-inner { transform: rotateY(180deg); }
+    .card-face { position: absolute; inset: 0; overflow: hidden; border: 3px solid rgba(248,204,99,.8); border-radius: 15px; backface-visibility: hidden; box-shadow: 0 16px 30px rgba(0,0,0,.38); }
+    .card-face img { width: 100%; height: 100%; object-fit: cover; }
+    .card-back { transform: rotateY(180deg); background: #171d31; }
+    .card-position { position: absolute; right: 0; bottom: -30px; left: 0; color: var(--muted); font-size: 12px; font-weight: 800; text-align: center; }
+    .cards.shuffling .playing-card:nth-child(1) { animation: shuffle-left 1.35s ease-in-out; }
+    .cards.shuffling .playing-card:nth-child(2) { animation: shuffle-middle 1.35s ease-in-out; }
+    .cards.shuffling .playing-card:nth-child(3) { animation: shuffle-right 1.35s ease-in-out; }
+    @keyframes shuffle-left { 0%,100%{transform:translateX(0)} 32%{transform:translateX(calc(100% + 22px)) translateY(-20px)} 66%{transform:translateX(calc(200% + 44px))} }
+    @keyframes shuffle-middle { 0%,100%{transform:translateX(0)} 32%{transform:translateX(calc(100% + 22px))} 66%{transform:translateX(calc(-100% - 22px)) translateY(-20px)} }
+    @keyframes shuffle-right { 0%,100%{transform:translateX(0)} 32%{transform:translateX(calc(-200% - 44px))} 66%{transform:translateX(calc(-100% - 22px))} }
+    .instruction { position: absolute; right: 20px; bottom: 16px; left: 20px; color: var(--muted); font-size: 13px; text-align: center; }
+    .locked-value { display: none; margin: 0 0 18px; padding: 12px 14px; border: 1px solid rgba(248,204,99,.28); border-radius: 12px; color: #ffe299; background: rgba(248,204,99,.07); font-size: 13px; }
+    @media(max-width:500px){ .cards { gap: 8px; min-height: 220px; } .card-position{bottom:-24px} }
   </style>
 </head>
-
 <body>
+  <main class="game-shell">
+    <header class="game-topbar">
+      <a class="back-link" href="./index.html">← Game lobby</a>
+      <div class="brand">SCAI<span>WARRIOR</span></div>
+      <div class="network-chip">Sepolia testnet</div>
+    </header>
 
-<h1>👑 King Game</h1>
-
-<button onclick="connectWallet()">🔗 Connect Wallet</button>
-
-<div>
-  <input id="bet" type="number" placeholder="Bet ETH">
-  <button onclick="confirmPick()">🎯 Confirm</button>
-</div>
-
-<div class="cards" id="cards"></div>
-<div id="result"></div>
-
-<script type="module">
-import { connectWallet, playKing } from "./game.js";
-
-let selectedIndex = null;
-let isPlaying = false;
-
-// ================= WALLET =================
-window.connectWallet = async function () {
-  const address = await connectWallet();
-  if (address) alert(`✅ Connected: ${address.slice(0, 6)}...${address.slice(-4)}`);
-};
-
-// ================= RENDER =================
-function renderCards() {
-  const container = document.getElementById("cards");
-  container.innerHTML = "";
-
-  const preview = ["king", "queen", "queen"]
-    .sort(() => Math.random() - 0.5);
-
-  preview.forEach((type, i) => {
-    const card = document.createElement("div");
-    card.className = "card3d";
-
-    card.innerHTML = `
-      <div class="inner">
-        <div class="front">
-          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/${type}.png"
-               style="filter: blur(8px); opacity:0.6;">
-        </div>
-        <div class="back">
-          <img src="https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/card-back.png">
-        </div>
+    <section class="game-card">
+      <div class="game-heading">
+        <div class="eyebrow">Three-card challenge</div>
+        <h1>Find the King</h1>
+        <p>Memorize the King, lock your stake, follow the shuffle, and choose one card.</p>
       </div>
-    `;
 
-    card.onclick = () => selectCard(i);
-    container.appendChild(card);
-  });
-}
+      <div class="game-grid">
+        <div class="visual-panel king-stage">
+          <div id="cards" class="cards">
+            <button class="playing-card" data-index="0" type="button">
+              <span class="card-inner"><span class="card-face card-front"><img src="./assets/king.png" alt="King"></span><span class="card-face card-back"><img src="./assets/card-back.png" alt="Card back"></span></span>
+              <span class="card-position">CARD 1</span>
+            </button>
+            <button class="playing-card" data-index="1" type="button">
+              <span class="card-inner"><span class="card-face card-front"><img src="./assets/queen.png" alt="Queen"></span><span class="card-face card-back"><img src="./assets/card-back.png" alt="Card back"></span></span>
+              <span class="card-position">CARD 2</span>
+            </button>
+            <button class="playing-card" data-index="2" type="button">
+              <span class="card-inner"><span class="card-face card-front"><img src="./assets/queen.png" alt="Queen"></span><span class="card-face card-back"><img src="./assets/card-back.png" alt="Card back"></span></span>
+              <span class="card-position">CARD 3</span>
+            </button>
+          </div>
+          <div id="instruction" class="instruction">The King starts face-up. Set your amount and press Start.</div>
+        </div>
 
-// ================= SELECT =================
-function selectCard(index) {
-  if (isPlaying) return;
+        <aside class="control-panel">
+          <h2 id="controlTitle">Set your stake</h2>
+          <div id="betControls">
+            <label class="field-label" for="bet">Stake amount</label>
+            <div class="bet-wrap"><input id="bet" type="number" min="0.05" max="1" step="0.01" placeholder="0.05"><span>ETH</span></div>
+            <div class="presets">
+              <button class="preset" data-bet="0.05">0.05</button>
+              <button class="preset" data-bet="0.1">0.10</button>
+              <button class="preset" data-bet="0.25">0.25</button>
+              <button class="preset" data-bet="0.5">0.50</button>
+            </div>
+          </div>
+          <div id="lockedValue" class="locked-value"></div>
+          <button id="startBtn" class="primary-button" type="button">Start game</button>
+          <button id="confirmBtn" class="primary-button" type="button" hidden disabled>Confirm selected card</button>
+          <button id="againBtn" class="secondary-button" type="button" hidden>Play again</button>
+          <div id="result" class="status-box">One King. Two Queens. Keep your eyes on the cards.</div>
+          <div class="step-row" aria-label="Game progress">
+            <span id="step-0" class="step-dot active"></span><span id="step-1" class="step-dot"></span><span id="step-2" class="step-dot"></span><span id="step-3" class="step-dot"></span>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
 
-  selectedIndex = index;
+  <script type="module">
+    import { connectWallet, playKing } from "./game.js";
 
-  let all = document.querySelectorAll(".card3d");
-  all.forEach(c => c.classList.remove("selected"));
-  all[index].classList.add("selected");
-}
+    const cards = [...document.querySelectorAll(".playing-card")];
+    const cardsRow = document.getElementById("cards");
+    const betInput = document.getElementById("bet");
+    const betControls = document.getElementById("betControls");
+    const lockedValue = document.getElementById("lockedValue");
+    const startBtn = document.getElementById("startBtn");
+    const confirmBtn = document.getElementById("confirmBtn");
+    const againBtn = document.getElementById("againBtn");
+    const resultBox = document.getElementById("result");
+    const instruction = document.getElementById("instruction");
+    const controlTitle = document.getElementById("controlTitle");
+    let selectedIndex = null;
+    let lockedBet = null;
+    let phase = "preview";
 
-// ================= REVEAL =================
-function revealCards(kingIndex) {
-  const all = document.querySelectorAll(".card3d");
+    window.Telegram?.WebApp?.ready();
+    window.Telegram?.WebApp?.expand();
+    connectWallet();
 
-  all.forEach((card, i) => {
-    const img = card.querySelector(".front img");
+    const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-    if (i === kingIndex) {
-      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/king.png";
-    } else {
-      img.src = "https://raw.githubusercontent.com/vishalmathuri/ScaiWarrior_bot/main/game/assets/queen.png";
+    function setStatus(message, tone = "") {
+      resultBox.className = `status-box ${tone}`.trim();
+      resultBox.textContent = message;
     }
 
-    img.style.filter = "none";
-    img.style.opacity = "1";
-  });
-}
-
-// ================= FLIP =================
-function flipAll(show) {
-  document.querySelectorAll(".card3d").forEach(card => {
-    show ? card.classList.add("flip") : card.classList.remove("flip");
-  });
-}
-
-// ================= PLAY =================
-window.confirmPick = async function () {
-  const bet = document.getElementById("bet").value;
-
-  if (selectedIndex === null) return alert("Select card");
-  if (!bet || bet <= 0) return alert("Invalid bet");
-  if (isPlaying) return;
-
-  const resultBox = document.getElementById("result");
-
-  try {
-    isPlaying = true;
-    resultBox.innerText = "⏳ Playing...";
-
-    const res = await playKing(Number(selectedIndex), bet);
-
-    // 🔥 sync UI with contract
-    revealCards(res.kingIndex);
-
-    // delay for suspense
-    await new Promise(r => setTimeout(r, 600));
-
-    flipAll(true);
-
-    let all = document.querySelectorAll(".card3d");
-
-    if (res.win) {
-      all[selectedIndex].classList.add("win");
-      resultBox.innerText = "🎉 YOU WON!";
-    } else {
-      all[selectedIndex].classList.add("lose");
-      all[res.kingIndex].classList.add("win");
-      resultBox.innerText = `❌ Lost! King was ${res.kingIndex}`;
+    function setStep(active) {
+      document.querySelectorAll(".step-dot").forEach((dot, index) => dot.classList.toggle("active", index === active));
     }
 
-  } catch (err) {
-    console.error(err);
-    resultBox.innerText = "❌ Transaction failed";
-  } finally {
-    isPlaying = false;
-  }
-};
+    function setFace(index, type) {
+      const image = cards[index].querySelector(".card-front img");
+      image.src = type === "king" ? "./assets/king.png" : "./assets/queen.png";
+      image.alt = type === "king" ? "King" : "Queen";
+    }
 
-// INIT
-renderCards();
+    document.querySelectorAll(".preset").forEach((button) => {
+      button.addEventListener("click", () => { betInput.value = button.dataset.bet; });
+    });
 
-</script>
+    cards.forEach((card) => {
+      card.addEventListener("click", () => {
+        if (phase !== "selecting") return;
+        selectedIndex = Number(card.dataset.index);
+        cards.forEach((item) => item.classList.remove("selected"));
+        card.classList.add("selected");
+        confirmBtn.disabled = false;
+        instruction.textContent = `Card ${selectedIndex + 1} selected. Confirm to reveal the on-chain result.`;
+        setStatus(`You selected Card ${selectedIndex + 1}.`);
+      });
+    });
 
+    startBtn.addEventListener("click", async () => {
+      if (phase !== "preview") return;
+      const bet = Number(betInput.value);
+      if (bet < 0.05 || bet > 1) {
+        setStatus("Enter a bet between 0.05 and 1 ETH.", "danger");
+        return;
+      }
+
+      phase = "shuffling";
+      lockedBet = bet;
+      startBtn.disabled = true;
+      betInput.disabled = true;
+      setStep(1);
+      setStatus("Memorize the King. Cards are turning over…");
+      instruction.textContent = "Watch closely—the cards are about to shuffle.";
+
+      await wait(650);
+      cards.forEach((card, index) => window.setTimeout(() => card.classList.add("face-down"), index * 120));
+      await wait(1050);
+      cardsRow.classList.add("shuffling");
+      setStatus("Shuffling the cards…");
+      await wait(1450);
+      cardsRow.classList.remove("shuffling");
+
+      phase = "selecting";
+      cards.forEach((card) => card.classList.add("can-pick"));
+      betControls.style.display = "none";
+      lockedValue.style.display = "block";
+      lockedValue.textContent = `Locked stake: ${lockedBet.toFixed(4)} ETH`;
+      startBtn.hidden = true;
+      confirmBtn.hidden = false;
+      controlTitle.textContent = "Choose a card";
+      instruction.textContent = "Select the card hiding the King.";
+      setStatus("The shuffle is complete. Choose one card.");
+      setStep(2);
+    });
+
+    confirmBtn.addEventListener("click", async () => {
+      if (phase !== "selecting" || selectedIndex === null) return;
+      phase = "playing";
+      confirmBtn.disabled = true;
+      cards.forEach((card) => card.classList.remove("can-pick"));
+      setStatus("Confirm in your wallet. Waiting for the on-chain reveal…");
+
+      try {
+        const outcome = await playKing(selectedIndex, lockedBet);
+        cards.forEach((card, index) => setFace(index, index === Number(outcome.kingIndex) ? "king" : "queen"));
+        await wait(450);
+        cards.forEach((card, index) => window.setTimeout(() => card.classList.remove("face-down"), index * 120));
+        await wait(950);
+
+        cards[Number(outcome.kingIndex)].classList.add("win");
+        if (outcome.win) {
+          setStatus(`You found the King under Card ${Number(outcome.kingIndex) + 1}. You won!`, "success");
+          instruction.textContent = "Perfect pick—the King is yours.";
+        } else {
+          cards[selectedIndex].classList.add("lose");
+          setStatus(`Card ${selectedIndex + 1} was a Queen. The King was under Card ${Number(outcome.kingIndex) + 1}.`, "danger");
+          instruction.textContent = "The cards have been revealed.";
+        }
+        phase = "revealed";
+        confirmBtn.hidden = true;
+        againBtn.hidden = false;
+        controlTitle.textContent = "Round complete";
+        setStep(3);
+      } catch (error) {
+        console.error(error);
+        phase = "selecting";
+        cards.forEach((card) => card.classList.add("can-pick"));
+        confirmBtn.disabled = false;
+        setStatus(error.shortMessage || error.message || "Transaction was not completed.", "danger");
+      }
+    });
+
+    againBtn.addEventListener("click", () => {
+      phase = "preview";
+      selectedIndex = null;
+      lockedBet = null;
+      cards.forEach((card) => card.className = "playing-card");
+      setFace(0, "king");
+      setFace(1, "queen");
+      setFace(2, "queen");
+      betControls.style.display = "";
+      lockedValue.style.display = "none";
+      betInput.disabled = false;
+      startBtn.hidden = false;
+      startBtn.disabled = false;
+      confirmBtn.hidden = true;
+      confirmBtn.disabled = true;
+      againBtn.hidden = true;
+      controlTitle.textContent = "Set your stake";
+      instruction.textContent = "The King starts face-up. Set your amount and press Start.";
+      setStatus("One King. Two Queens. Keep your eyes on the cards.");
+      setStep(0);
+    });
+  </script>
 </body>
 </html>

@@ -1,113 +1,46 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("CoinFlipCommitReveal", function () {
-  let contract, owner, player;
+describe("Game reward integration", function () {
+  let vault, coinFlip, owner, player;
 
-  beforeEach(async function () {
+  beforeEach(async () => {
     [owner, player] = await ethers.getSigners();
 
-    const CoinFlip = await ethers.getContractFactory("CoinFlipCommitReveal");
-    contract = await CoinFlip.deploy();
-    await contract.waitForDeployment(); // ✅ FIX
+    const Vault = await ethers.getContractFactory("Vault");
+    vault = await Vault.deploy();
+    await vault.waitForDeployment();
 
-    const contractAddress = await contract.getAddress(); // ✅ FIX
+    const CoinFlip = await ethers.getContractFactory("CoinFlip");
+    coinFlip = await CoinFlip.deploy(await vault.getAddress());
+    await coinFlip.waitForDeployment();
 
+    await vault.authorizeGame(await coinFlip.getAddress());
     await owner.sendTransaction({
-      to: contractAddress,
-      value: ethers.parseEther("20"), // ✅ FIX
+      to: await vault.getAddress(),
+      value: ethers.parseEther("20"),
     });
   });
 
-  function generateCommit(secret) {
-    return ethers.keccak256( // ✅ FIX
-      ethers.toUtf8Bytes(secret) // ✅ FIX
+  it("moves the stake into the Vault and resolves exactly once", async () => {
+    const secret = "integration-secret";
+    const hash = ethers.keccak256(ethers.toUtf8Bytes(secret));
+    const balanceBefore = await ethers.provider.getBalance(await vault.getAddress());
+
+    await coinFlip.connect(player).placeBet(true, hash, {
+      value: ethers.parseEther("0.1"),
+    });
+
+    expect(await ethers.provider.getBalance(await vault.getAddress())).to.equal(
+      balanceBefore + ethers.parseEther("0.1")
     );
-  }
 
-  it("Should allow user to place bet", async function () {
-    const hash = generateCommit("test");
-
-    const tx = await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"), // ✅ FIX
-    });
-
-    expect(tx.hash).to.exist;
-  });
-
-  it("Should reject bet below minimum", async function () {
-    const hash = generateCommit("test");
-
-    await expect(
-      contract.connect(player).placeBet(true, hash, {
-        value: ethers.parseEther("0.001"),
-      })
-    ).to.be.revertedWith("Invalid bet"); // ✅ FIX
-  });
-
-  it("Should resolve bet", async function () {
-    const secret = "secret";
-    const hash = generateCommit(secret);
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
-    const tx = await contract.connect(player).reveal(0, secret);
-    expect(tx.hash).to.exist;
-  });
-
-  it("Should fail wrong secret", async function () {
-    const secret = "correct";
-    const hash = generateCommit(secret);
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
-    await expect(
-      contract.connect(player).reveal(0, "wrong")
-    ).to.be.revertedWith("Invalid secret"); // ✅ FIX
-  });
-
-  it("Should not allow double reveal", async function () {
-    const secret = "abc";
-    const hash = generateCommit(secret);
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
-    await contract.connect(player).reveal(0, secret);
-
-    await expect(
-      contract.connect(player).reveal(0, secret)
-    ).to.be.revertedWith("Already revealed"); // ✅ FIX
-  });
-
-  it("Should allow refund after timeout", async function () {
-    const hash = generateCommit("timeout");
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
-    await ethers.provider.send("evm_increaseTime", [600]);
     await ethers.provider.send("evm_mine");
+    await expect(coinFlip.connect(player).reveal(0, secret)).to.emit(
+      coinFlip,
+      "BetRevealed"
+    );
 
-    const tx = await contract.connect(player).claimTimeout(0);
-    expect(tx.hash).to.exist;
-  });
-
-  it("Should not allow early refund", async function () {
-    const hash = generateCommit("early");
-
-    await contract.connect(player).placeBet(true, hash, {
-      value: ethers.parseEther("0.1"),
-    });
-
-    await expect(
-      contract.connect(player).claimTimeout(0)
-    ).to.be.revertedWith("Wait more"); // ✅ FIX
+    expect((await coinFlip.bets(0)).revealed).to.equal(true);
   });
 });

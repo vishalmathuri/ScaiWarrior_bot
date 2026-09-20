@@ -11,6 +11,8 @@ interface IVault {
 contract DiceGame is ReentrancyGuard {
 
     IVault public vault;
+    uint public constant MIN_BET = 0.05 ether;
+    uint public constant MAX_BET = 1 ether;
 
     constructor(address _vault) {
         vault = IVault(_vault);
@@ -27,7 +29,7 @@ contract DiceGame is ReentrancyGuard {
     );
 
     function play(uint choice) external payable nonReentrant {
-        require(msg.value > 0, "Invalid bet");
+        require(msg.value >= MIN_BET && msg.value <= MAX_BET, "Invalid bet");
         require(choice <= 2, "Invalid choice");
 
         vault.deposit{value: msg.value}();

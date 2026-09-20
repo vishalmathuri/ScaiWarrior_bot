@@ -24,6 +24,7 @@ contract CoinFlip is Ownable, ReentrancyGuard {
         bool guess;
         bytes32 commitHash;
         uint timestamp;
+        uint commitBlock;
         bool revealed;
     }
 
@@ -32,7 +33,7 @@ contract CoinFlip is Ownable, ReentrancyGuard {
 
     event BetPlaced(uint256 betId, address player, uint amount, bool guess);
     event BetRevealed(uint256 betId, bool win, uint payout);
-    event BetRefunded(uint256 betId, address player, uint amount);
+    event BetExpired(uint256 betId, address player);
 
     constructor(address _vault) Ownable(msg.sender) {
         vault = IVault(_vault);
@@ -50,6 +51,7 @@ contract CoinFlip is Ownable, ReentrancyGuard {
             guess,
             commitHash,
             block.timestamp,
+            block.number,
             false
         );
 
@@ -62,17 +64,18 @@ contract CoinFlip is Ownable, ReentrancyGuard {
 
         require(msg.sender == bet.player, "Not your bet");
         require(!bet.revealed, "Already revealed");
+        require(block.number > bet.commitBlock + 1, "Reveal too early");
+        require(block.timestamp < bet.timestamp + revealTimeout, "Reveal expired");
 
         require(
             keccak256(abi.encodePacked(secret)) == bet.commitHash,
             "Invalid secret"
         );
 
-        uint random = uint(
-            keccak256(
-                abi.encodePacked(secret, blockhash(block.number - 1))
-            )
-        ) % 2;
+        bytes32 entropyBlock = blockhash(bet.commitBlock + 1);
+        require(entropyBlock != bytes32(0), "Entropy unavailable");
+
+        uint random = uint(keccak256(abi.encodePacked(secret, entropyBlock))) % 2;
 
         bool win = (random == (bet.guess ? 1 : 0));
         uint payout = 0;
@@ -96,10 +99,8 @@ contract CoinFlip is Ownable, ReentrancyGuard {
 
         bet.revealed = true;
 
-        // ✅ REFUND FROM VAULT
-        vault.payout(bet.player, bet.amount);
-
-        emit BetRefunded(betId, msg.sender, bet.amount);
+        // A player cannot obtain a free option by withholding a losing reveal.
+        emit BetExpired(betId, msg.sender);
     }
 
     function setVault(address _vault) external onlyOwner {

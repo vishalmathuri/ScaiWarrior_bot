@@ -11,6 +11,8 @@ interface IVault {
 contract WheelGame is ReentrancyGuard {
 
     IVault public vault;
+    uint public constant MIN_BET = 0.05 ether;
+    uint public constant MAX_BET = 1 ether;
 
     constructor(address _vault) {
         vault = IVault(_vault);
@@ -22,7 +24,7 @@ contract WheelGame is ReentrancyGuard {
     event SpinResult(address player, uint index, uint multiplier, uint payout);
 
     function spin() external payable nonReentrant {
-        require(msg.value > 0, "Invalid bet");
+        require(msg.value >= MIN_BET && msg.value <= MAX_BET, "Invalid bet");
 
         uint random = uint(
             keccak256(

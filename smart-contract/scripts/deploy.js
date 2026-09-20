@@ -45,6 +45,17 @@ async function main() {
   const coinflip = await CoinFlip.deploy(vaultAddress);
   await coinflip.waitForDeployment();
   console.log("CoinFlip:", await coinflip.getAddress());
+
+  const games = [dice, king, wheel, coinflip];
+  for (const game of games) {
+    const address = await game.getAddress();
+    const tx = await vault.authorizeGame(address);
+    await tx.wait();
+    console.log("Authorized:", address);
+  }
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

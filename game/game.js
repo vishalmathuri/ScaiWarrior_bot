@@ -9,6 +9,18 @@ const SEPOLIA_CHAIN_HEX = "0xaa36a7";
 const MIN_BET = 0.05;
 const MAX_BET = 1;
 
+// Game outcomes are calculated from block data, so the winning path selected
+// when a transaction is mined can use more gas than the path simulated by the
+// wallet during estimation. Explicit headroom prevents intermittent out-of-gas
+// reverts while still charging only the gas actually consumed.
+const GAS_LIMITS = Object.freeze({
+  coinflipPlace: 180_000n,
+  coinflipReveal: 220_000n,
+  dice: 220_000n,
+  wheel: 220_000n,
+  king: 180_000n
+});
+
 function getWalletConnectProvider() {
   return window["@walletconnect/ethereum-provider"]?.EthereumProvider;
 }
@@ -185,7 +197,8 @@ export async function playCoinFlip(choice, bet) {
   );
 
   const tx = await contract.placeBet(choice, hash, {
-    value: window.ethers.parseEther(cleanBet.toString())
+    value: window.ethers.parseEther(cleanBet.toString()),
+    gasLimit: GAS_LIMITS.coinflipPlace
   });
 
   const receipt = await tx.wait();
@@ -205,7 +218,9 @@ export async function playCoinFlip(choice, bet) {
 
   await waitForNextBlock(receipt.blockNumber);
 
-  const tx2 = await contract.reveal(betId, secret);
+  const tx2 = await contract.reveal(betId, secret, {
+    gasLimit: GAS_LIMITS.coinflipReveal
+  });
   const receipt2 = await tx2.wait();
 
   for (let log of receipt2.logs) {
@@ -247,7 +262,8 @@ export async function playDice(choice, bet) {
 
   try {
     const tx = await contract.play(choice, {
-      value: window.ethers.parseEther(cleanBet.toString())
+      value: window.ethers.parseEther(cleanBet.toString()),
+      gasLimit: GAS_LIMITS.dice
     });
 
     const receipt = await tx.wait();
@@ -296,7 +312,8 @@ export async function spinWheel(bet) {
 
   try {
     const tx = await contract.spin({
-      value: window.ethers.parseEther(cleanBet.toString())
+      value: window.ethers.parseEther(cleanBet.toString()),
+      gasLimit: GAS_LIMITS.wheel
     });
 
     const receipt = await tx.wait();
@@ -350,7 +367,8 @@ export async function playKing(choice, bet) {
     }
 
     const tx = await contract.play(cleanChoice, {
-      value: window.ethers.parseEther(cleanBet.toString())
+      value: window.ethers.parseEther(cleanBet.toString()),
+      gasLimit: GAS_LIMITS.king
     });
 
     const receipt = await tx.wait();
